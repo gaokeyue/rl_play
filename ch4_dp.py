@@ -1,84 +1,151 @@
-from functools import partial
-from operator import itemgetter
 import numpy as np
 from scipy.stats import poisson
 import matplotlib.pyplot as plt
-plt.style.use('seaborn')
+from utils import deco_timer, deco_while
 
-class PMF:
+def expectation(prob_dict, f=None):
+    if f is None:  # just the expectation of the probability distribution
+        return sum(x * p for x, p in prob_dict.items())
+    # if f is given, then E[f(X)]
+    return sum(f[x] * p for x, p in prob_dict.items())
+
+def compare(a, b, thresh):
+    c = a - b
+    if c > thresh:
+        return 1
+    if c < -thresh:
+        return -1
+    return 0
+
+def allmax(input_dict, thresh):
+
+    best_score = -np.inf
+    best_keys = []
+    for k, v in input_dict.items():
+        flag = compare(v, best_score, thresh)
+        if flag is 1:
+            best_score = v
+            best_keys = [k]
+        elif flag is 0:
+            best_keys.append(k)
+    return best_keys, best_score
 
 
-    def __init__(self, prob):
-        """probability mass function, pmf[x] = p
-        :param prob (dict) -- prob[k] = Pr{X = k}"""
-        self.prob = prob
-
-    def expectation(self, f=None):
-        if f is None:
-            return sum(k * p for k, p in self.prob.items())
-        return sum(f[k] * p for k, p in self.prob.items())
-
-
-class State:
-    pass
-
-class Action:
-    pass
-
-class Policy:
-    pass
-
-
-class RLDP:
-    def __init__(self, dynamics, decay=1):
-        """Suppose p(s',r|s, a) is known
-        :param dynamics (dict) -- {state: {action: {state_prob: pmf, reward_prob: pmf}}}
+class DPRL:
+    def __init__(self, dynamics, gamma=1, eps=10**-8, max_iter=1000):
+        """The four argument p(s',r|s,a) completely specifies the dynamics.
+        :param dynamics (dict of dict of tuple of dict) --
+        dynamics[state][action] = (reward_prob, state_prob)
+        where foo_prob is discrete probability distribution, given by dictionary
+        foo_prob[k] = Pr{X=k}
+        :param gamma (0 < float <= 1) -- decay rate
+        :param eps (float) --
         """
         self.dynamics = dynamics
-        self.decay = decay
+        self.num_states = len(dynamics)
+        self.gamma = gamma
+        self.eps = eps
+        self.max_iter = max_iter
 
-    def policy_iter(self, policy_initializer):
-        pi0 = policy_initializer()
-        v0 = self.policy_eval(pi0)
-        max_iter = 100
+    def greedy_one_state(self, state_values, state):
+        action_value_dict = {}
+        best_actions = []
+        best_score = -np.inf
+        for action, (reward_prob, state_prob) in self.dynamics[state].items():
+            r = expectation(reward_prob) + \
+                self.gamma * expectation(state_prob, state_values)
+            action_value_dict[action] = r
+            flag = compare(r, best_score, self.eps)
+            if flag is 1:
+                best_score = r
+                best_actions = [action]
+            elif flag is 0:
+                best_actions.append(action)
+        return best_score, best_actions, action_value_dict
+
+    def value_iter(self, v0):
+        """"""
+        @deco_while(max_iter=self.max_iter, print_iter=10, thresh=self.eps)
+        def value_iteration_step(v0):
+            # print(v0)
+            v1 = np.zeros(self.num_states)
+            for state in range(self.num_states):
+                # action_value_dict = self.get_state_action_value(v0, state)
+                # _, best_v = allmax(action_value_dict, self.eps)
+                # pick the best action with repsect to the current value function
+                actions = self.dynamics[state]
+                best_v = max(expectation(reward_prob) +
+                                self.gamma * expectation(state_prob, v0)
+                                for reward_prob, state_prob in actions.values())
+                v1[state] = best_v
+            return v1
+
+        result = value_iteration_step(v0)
+        # max_iter = 1000
+        # n_iter = 0
+        # while n_iter < max_iter:
+        #     n_iter += 1
+        #     if n_iter % 10 == 0:
+        #         print(f"Running iteration {n_iter}")
+        #     v1 = step(v0)
+        #     if all(abs(x - y) <= self.eps for x, y in zip(v0, v1)):
+        #         break
+        #     v0 = v1
+        # else:
+        #     print(f"exceed maximum iteration {max_iter}")
+        return result
+
+    def policy_iter(self, pi0, v0):
+        max_iter = 1000
         n_iter = 0
         while n_iter < max_iter:
             n_iter += 1
+            v0 = self.policy_eval(pi0, v0)
+            v1, pi1 = self.policy_improve(v0)
+            if all(abs(x - y) <= self.eps for x, y in zip(v0, v1)):
+                v0 = v1
+                pi0 = pi1
+                break
+            for state in pi0:
+                pi0[state] = pi1[state].pop()
+        else:
+            print(f"exceed maximum iteration {max_iter}")
+        return v0, pi0
 
-            pi1 = self.policy_impro(v0)
+    def get_trans_prob_pi(self, policy):
+        """return transition probability under a deterministic policy pi
+        :param policy -- deterministic map state to action (stake)
+        """
+        reward_pi = np.zeros(self.num_states)
+        state_tran_pi = np.zeros((self.num_states, self.num_states))
+        for state in range(self.num_states):
+            action = policy[state]
+            reward_prob, state_prob = self.dynamics[state][action]
+            reward_pi[state] = expectation(reward_prob)
+            for s_p, p in state_prob.items():
+                state_tran_pi[state, s_p] = p
+        return reward_pi, state_tran_pi
 
-    def state_action_value_one(self, state, action, state_values):
-        """"""
-        a = self.dynamics[state][action]['reward'].expectation()
-        b = self.decay * self.dynamics[state][action]['state'].expectation(state_values)
-        return a + b
+    def policy_eval(self, pi, v0):
+        reward_pi, state_tran_pi = self.get_trans_prob_pi(pi)
+        max_iter = 1000
+        n_iter = 0
+        while n_iter < max_iter:
+            n_iter += 1
+            v1 = reward_pi + self.gamma * state_tran_pi @ v0
+            if all(abs(x - y) <= self.eps for x, y in zip(v0, v1)):
+                break
+            v0 = v1
+        return v0
 
-
-    def policy_eval(self):
-        pass
-
-    def policy_impro(self, state_values):
-        pi = {}
-        for state in self.state_space:
-            actions = self.dynamics[state].keys()
-            best_actions = set()
-            best_score = -np.inf
-            for action in actions:
-                q = self.state_action_value_one(state, action, state_values)
-                if q == best_score:
-                    best_actions.add(action)
-                elif q > best_score:
-                    best_actions = {action}
-                    best_score = q
-        pass
-
-    def value_iter(self, value_initialzer):
-        v0 = value_initialzer()
-        v1 = {}
-        for state, actions in self.dynamics.items():
-            # max_a q(s, a)
-            v1[state] = max(self.state_action_value_one(state, action, v0) for action in actions)
-
+    def policy_improve(self, v0):
+        v1 = np.zeros(self.num_states)
+        pi1 = {}
+        for state, value in enumerate(v0):
+            new_value, best_actions, _ = self.greedy_one_state(v0, state)
+            v1[state] = new_value
+            pi1[state] = best_actions
+        return v1, pi1
 
 
 class JackCarRental:
@@ -153,107 +220,107 @@ class JackCarRental:
                         r += prob * self.gamma * v0[x1, y1]
         return r
 
-class Gambler:
-    def __init__(self, p_h, goal=100):
-        """:param p_h -- the probability of head
-        :param goal -- once goal is reached, the game ends and receives reward 1.
-        """
+
+class Gambler(DPRL):
+    def __init__(self, p_h, goal=100, eps=10**-6, max_iter=1000):
         self.p_h = p_h
         self.goal = goal
-        # two terminal states, 0 and goal, included
-        self.state_space = tuple(range(0, goal + 1))
-        # action_space[i] is the max stakes when state = i
-        # For the two terminal states, do nothing, i.e bid 0
-        self.action_space = [state if state * 2 <= goal else goal - state
-                             for state in self.state_space]
-        self.eps = 10 ** -6
+        self.state_space = range(self.goal + 1)
+        dynamics = self.build_dynamics(p_h, goal)
+        super().__init__(dynamics, gamma=1, eps=eps, max_iter=max_iter)
+
+    def build_dynamics(self, p_h, goal):
+        dynamics = {}
+        for state in self.state_space:
+            if self.is_terminal(state):
+                reward_prob = {0: 1}
+                state_prob = {state: 1}
+                actions = {0: (reward_prob, state_prob)}
+            else:
+                actions = {}
+                # the gambler at least bids 1
+                for action in range(1, min(state, goal - state) + 1):
+                    if state + action == goal:
+                        # If there is a chance to win, then get reward 1 with prob p_h
+                        reward_prob = {0: 1 - p_h, 1: p_h}
+                    else:
+                        reward_prob = {0: 1}
+                    state_prob = {state - action: 1 - p_h,
+                                  state + action: p_h}
+                    actions[action] = (reward_prob, state_prob)
+            dynamics[state] = actions
+        return dynamics
 
     def is_terminal(self, state):
         return state <= 0 or state >= self.goal
 
-    def get_policy_dynamics(self, policy):
-        """Once a policy pi is specified, the expectation of immediate reward
-        and the state transition probability under pi are both determined.
-        :param policy -- deterministic map state to action (stake)
-        """
-        # The immediate reward. Nonzero only if state + action is goal
-        reward_pi = np.zeros(self.goal + 1)
-        state_tran_pi = np.zeros((self.goal + 1, self.goal + 1))
-        for state, action in enumerate(policy):
-            if self.is_terminal(state):
-                # the terminal state can no longer generate positive reward
-                state_tran_pi[state, state] = 1
-            else:
-                state_tran_pi[state, state - action] += 1 - self.p_h  # use += in case action=0
-                try:
-                    state_tran_pi[state, state + action] += self.p_h
-                except:
-                    print('haha')
-                if state + action == self.goal:
-                    reward_pi[state] = self.p_h
-        return reward_pi, state_tran_pi
-
-    def policy_eval(self, policy, v0=None):
-        """v(s) = sum(p(s'|s)v(s')) + E_pi[r]"""
-        # initialize value function
-        if v0 is None:
-            v0 = .5 * np.ones_like(self.state_space)
-            v0[0] = 0
-            v0[-1] = 0
-        reward_pi, state_tran_pi = self.get_policy_dynamics(policy)
-        max_iter = 100
-        n_iter = 0
-        while n_iter < max_iter:
-            n_iter += 1
-            v1 = reward_pi + state_tran_pi @ v0
-            if np.linalg.norm(v1 - v0, np.inf) <= self.eps:
-                break
-            v0 = v1
-        else:
-            print(f"exceed {max_iter}")
+    def state_value_initializer(self):
+        v0 = np.linspace(0, 1, self.num_states)
+        # v0[0] = 0
+        v0[-1] = 0
         return v0
 
-    def policy_impro(self, state_val):
+    def policy_initializer(self):
+        return {state: min(state, self.goal - state)
+                for state in self.state_space}
 
-        def state_action_value(state, action):
-            """Assume that state is non terminal"""
-            reward = self.p_h if state + action == self.goal else 0
-            # the expectation of the value function of s'
-            val_exp = (1 - self.p_h) * state_val[state - action] \
-                      + self.p_h * state_val[state + action]
-            return reward + val_exp
-
-        pi = np.zeros_like(self.state_space)
-        for state in self.state_space:
-            if not self.is_terminal(state):
-                actions = range(1, 1 + self.action_space[state])
-                a_star = max(actions, key=partial(state_action_value, state))
-                pi[state] = a_star
-        return pi
-
-    def policy_iter(self, pi0=None):
-        if pi0 is None:
-            # the initial policy is to bet as much as one can
-            pi0 = np.array(self.action_space)
-        max_iter = 100
-        n_iter = 0
-        while n_iter < max_iter:
-            n_iter += 1
-            print(pi0)
-            state_val = self.policy_eval(pi0)
-            pi1 = gambler.policy_impro(state_val)
-            if all(pi0[state] == pi1[state] for state in self.state_space):
-                break
-            pi0 = pi1
-        else:
-            print(f"exceeds maximum number of iteration {max_iter}")
-        return pi0
-
-    def value_iter(self):
-        pass
+@deco_timer
+def test_gambling(p_h=.6, goal=15, eps=10**-6, max_iter=7000):
+    gambler = Gambler(p_h, goal, eps=eps, max_iter=max_iter)
+    # v0 = gambler.state_value_initializer()
+    # pi0 = gambler.policy_initializer()
+    # v_star, pi_star = gambler.value_iter(v0)
+    v_star = gambler.value_iter(gambler.state_value_initializer())
+    print(v_star)
+    _, (v_plot, pi_plot) = plt.subplots(2, 1)
+    v_plot.plot(v_star, '.')
+    v_plot.set_title('optimal value function')
+    v_plot.set_xlabel('state')
+    v_plot.set_ylabel('v_star')
+    xx = []
+    yy = []
+    for state in gambler.state_space:
+        best_v, best_actions, action_value_dict = gambler.greedy_one_state(v_star, state)
+        for action in best_actions:
+            xx.append(state)
+            yy.append(action)
+    pi_plot.set_title('optimal policy family')
+    pi_plot.plot(xx, yy, '.')
+    pi_plot.set_xlabel('state')
+    pi_plot.set_ylabel('optimal action')
+    plt.show()
+    # return v_star, pi_star
 
 if __name__ == '__main__':
-    gambler = Gambler(p_h=.4, goal=100)
-    opt_pi = gambler.policy_iter()
-    plt.plot(opt_pi)
-    plt.show()
+    # gambler = Gambler(p_h=.4, goal=64, eps=10**-8)
+    # # v0 = gambler.state_value_initializer()
+    # # pi0 = gambler.policy_initializer()
+    # # v1, pi_star = gambler.policy_iter(pi0, v0)
+    # # pi_vec = np.zeros_like(v0)
+    # # for state, actions in pi_star.items():
+    # #     pi_vec[state] = actions[0]
+    # # plt.plot(pi_vec, 'o''')
+    # v0 = gambler.state_value_initializer()
+    # v_star = gambler.value_iter(v0)
+    # xx = []
+    # yy = []
+    # # pi_star = np.zeros_like(v_star)
+    # pi_star = {}
+    # for state in gambler.state_space:
+    #     best_v, best_actions, action_value_dict = gambler.greedy_one_state(v_star, state)
+    #     for action in best_actions:
+    #         xx.append(state)
+    #         yy.append(action)
+    #     # print(action_value_dict)
+    #     # if len(best_actions) > 1:
+    #     #     print(f"The best actions for state {state} are {best_actions}")
+    #     pi_star[state] = best_actions
+    # plt.plot(xx, yy, '.')
+    # # plt.plot(pi_star, '.')
+    # # print(v_star)
+    # # plt.plot(v_star, '.')
+    # plt.xlabel('state')
+    # plt.ylabel('optimal action')
+    # plt.grid()
+    # plt.show()
+    test_gambling()
