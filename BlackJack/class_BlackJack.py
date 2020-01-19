@@ -1,60 +1,108 @@
-from BlackJack.player import Player
+from BlackJack.player import Player, Dealer
 from BlackJack.qlearner import Learner
 from BlackJack.class_Deck_BlackJack import DeckBlackJack
-
+import random
 
 class BlackJack:
-    def __init__(self, num_learning_rounds, learner=None, report_every=100):
-        self.player = learner
-        self.win = 0
-        self.loss = 0
-        self.game_num = 1
-        self._num_learning_rounds = num_learning_rounds
-        self._report_every = report_every
+    ranks = list(range(1, 10)) + [10] * 4
+    def __init__(self, player_start=None, dealer_start=None, n_decks=None):
+        """parameters to consider: replaceable, do we fix the initial hand for player and dealer,
+        player's policy, dealer's policy.
+        """
+        self.player_start = player_start
+        self.dealer_start = dealer_start
+        self.n_decks = n_decks  # if n_decks is None, then an infinite deck
+        self.stake = 1
+        self.reset()
 
-    def reset_round(self):
-        deck = DeckBlackJack(deck_number=8)
-        if self.player is None:
-            self.player = Learner(num_learning_rounds=self._num_learning_rounds)
+    def replenish(self):
+        if self.n_decks is None:
+            self.deck = None
         else:
-            self.player.reset_hand()
-        player = self.player
-        dealer = Player()
-        winner = None
-        player.hit(deck=deck)
-        dealer.hit(deck=deck)
-        player.hit(deck=deck)
-        dealer.hit(deck=deck)
-        return deck, player, dealer, winner
+            self.deck = self.ranks * 4 * self.n_decks
+            random.shuffle(self.deck)
 
-    def run(self):
-        deck, player, dealer, winner = self.reset_round()
-        state = self.get_starting_state(player1=player, player2=dealer)
-        while player.get_action(state=state) == 'hit':
-            player.hit(deck=deck)
-            if self.determine_if_bust(player=player):
+    def draw(self):
+        if self.deck is None:  # draw uniformly from (A,2,3,...,T,J,Q,K)
+            return random.choices(self.ranks, weights=[1] * 9 + [4])[0]
+        return self.deck.pop()
+
+    def reset(self):
+        self.replenish()
+        if self.player_start is None:
+            player_sum = self.draw()
+            player_sum += self.draw()
+        else:
+            player_sum = self.player_start
+        if self.dealer_start is None:
+            dealer_sum = self.draw()  # not exact. We may need to differentiate card shown and not shown
+        else:
+            dealer_sum = self.dealer_start
+        return player_sum, dealer_sum
+
+    def one_move(self, state, action):
+        """:return is_terminal, reward, new_state"""
+        player_sum, dealer_sum = state
+        if action == 'hit':
+            player_sum += self.deck.draw()
+            new_state = (player_sum, dealer_sum)
+            if player_sum > 21:
+                is_terminal = True
+                reward = -self.stake
+            else:
+                is_terminal = False
+                reward = 0
+            return is_terminal, reward, new_state
+        elif action == 'stick':
+            is_terminal = True
+            while dealer_sum < 17:
+                dealer_sum += self.deck.draw()
+                if dealer_sum > 21:
+                    return is_terminal, self.stake, (player_sum, dealer_sum)
+            new_state = (player_sum, dealer_sum)
+            if player_sum > dealer_sum:
+                reward = self.stake
+            elif player_sum == dealer_sum:
+                reward = 0
+            else:
+                reward = -self.stake
+            return is_terminal, reward, new_state
+        else:
+            raise ValueError("action can only be 'hit' or 'stick'")
+
+    def run(self, player_start=None, dealer_start=None):
+        self.reset(player_start, dealer_start)
+        # state0 = (player.value, dealer.value)
+        # action = player.get_action(state)
+        # reward, state1 = game(state, action)
+        # if state1 is not terminal, state0 = state1
+        player = self.player
+        dealer = self.dealer
+        winner = None
+
+        # state_action_pair_ls = [state]
+        while player.get_action(state) == 'hit':
+            player.hit()
+            if player.goes_bust:
                 winner = 'dealer'
-                self.loss += 1
-                player.update(new_state='player bust end', reward=-1, game=self.game_num)
+                # player.update(new_state='player bust end', reward=-self.stake, game=self.game_num)
                 break
             else:
-                state = self.get_state(player1=player, player2=dealer)
-                player.update(new_state=state, reward=0, game=self.game_num)
+                state = (player.value, dealer.value)
+                # player.update(new_state=state, reward=0, game=self.game_num)
         while dealer.get_action() == 'hit':
-            dealer.hit(deck=deck)
-            if self.determine_if_bust(player=dealer):
+            dealer.hit()
+            if dealer.goes_bust:
                 winner = 'player'
-                self.win += 1
-                player.update(new_state='dealer bust end', reward=1, game=self.game_num)
+                player.update(new_state='dealer bust end', reward=self.stake, game=self.game_num)
                 break
         if winner is None:
             winner = self.determine_winner(player1=player, player2=dealer)
             if winner == 'player':
-                self.win += 1
-                player.update(new_state='win end', reward=1, game=self.game_num)
+                player.update(new_state='win end', reward=self.stake, game=self.game_num)
             elif winner == 'dealer':
                 self.loss += 1
-                player.update(new_state='loss end', reward=-1, game=self.game_num)
+                player.update(new_state='loss end', reward=-self.stake, game=self.game_num)
             else:
                 player.update(new_state='draw end', reward=0, game=self.game_num)
 
