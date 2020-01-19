@@ -6,8 +6,8 @@ class Player:
     def get_hand(self):
         return self._hand
 
-    def get_action(self, state=None):
-        if self.get_hand_value() < 15:
+    def get_action(self):
+        if self.get_hand_value() < 17:
             return 'hit'
         else:
             return 'stay'
@@ -16,7 +16,7 @@ class Player:
         return sum(self._hand)
 
     def get_showing_value(self):
-        showing = sum(self._hand[1:])
+        showing = self._hand[1]
         self._original_showing_value = showing
         return showing
 
@@ -27,12 +27,13 @@ class Player:
         card_value = deck.draw()
         self._hand.append(card_value)
 
-    def stay(self):
+    @staticmethod
+    def stay():
         return True
 
     def reset_hand(self):
         self._hand = []
 
-    def update(self, new_state, reward):
+    def update(self):
         pass
 
