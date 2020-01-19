@@ -36,7 +36,8 @@ class BlackJack:
                 winner = 'dealer'
                 self.loss += 1
                 player.update(new_state='player bust end', reward=-1, game=self.game_num)
-                break
+                self.game_num += 1
+                return
             else:
                 state = self.get_state(player1=player, player2=dealer)
                 player.update(new_state=state, reward=0, game=self.game_num)
@@ -46,7 +47,8 @@ class BlackJack:
                 winner = 'player'
                 self.win += 1
                 player.update(new_state='dealer bust end', reward=1, game=self.game_num)
-                break
+                self.game_num += 1
+                return
         if winner is None:
             winner = self.determine_winner(player1=player, player2=dealer)
             if winner == 'player':
@@ -80,8 +82,7 @@ class BlackJack:
 
     @staticmethod
     def determine_winner(player1, player2):
-        if player1.get_hand_value() == 21 \
-                or 21 >= player1.get_hand_value() > player2.get_hand_value():
+        if player1.get_hand_value() > player2.get_hand_value():
             return 'player'
         elif player1.get_hand_value() == player2.get_hand_value():
             return None
