@@ -106,12 +106,12 @@ class BlackJack:
             hit_card = random.choice(cards)
             count += cards_count[hit_card]
             if count > 21:
-                if not usable_ace:
+                if (not usable_ace) and (hit_card != 'A'):
                     return 0
                 else:
-                    usable_ace = False
                     count = count - 10
-            if hit_card is 'A':
+                    usable_ace = False
+            if (hit_card == 'A') and usable_ace:
                 usable_ace = True
         return count
 
