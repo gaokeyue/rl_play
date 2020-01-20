@@ -1,4 +1,5 @@
 from BlackJack.player import Player
+from BlackJack.class_BlackJack import BlackJack
 import pandas as pd
 import random
 from collections import defaultdict
@@ -92,19 +93,19 @@ class Learner(Player):
         df['policy'] = df.apply(lambda x: 'hit' if x['hit'] >= x['stay'] else 'stay', axis=1)
         return df
 
+class Averager:
+    def __init__(self):
+        self.average = 0
+        self.n = 0
 
-def make_averager():
-    s = 0
-    n = 0
+    def __call__(self, x):
+        self.n += 1
+        lr = 1 / self.n
+        self.average = (1 - lr) * self.average + lr * x
+        return self.average
 
-    def averager(x):
-        nonlocal s, n
-        n += 1
-        learning_rate = 1 / n
-        s = (1 - learning_rate) * s + learning_rate * x
-        return s
-
-    return averager
+    def __repr__(self):
+        return repr(self.average)
 
 
 class TDRL:
@@ -114,20 +115,34 @@ class TDRL:
         self.game = game
         self.gamma = gamma
 
-    def policy_eval(self, policy):
+    def policy_eval(self, policy, max_iter):
         """only consider deterministic policy, hence a dictionary whose key and value are
         state and action respectively.
         """
-        state = self.game.reset()
-        is_terminal = False
-        sa_pair_ls = []  # state-action pair
-        reward_ls = []
-        q_value = {state: {action: make_averager()} for state, action in policy.items()}
-        while not is_terminal:
-            action = policy[state]
-            sa_pair_ls.append((state, action))
-            is_terminal, reward, state = self.game.one_move(state, action)
-            reward_ls.append(reward)
-        g = 0
-        for (state, action), reward in zip(reversed(sa_pair_ls), reversed(reward_ls)):
-            q_value
+        q_value = {state: {action: Averager()} for state, action in policy.items()}
+        for i in range(max_iter):
+            if i % 50 == 0:
+                for state, action_value in q_value.items():
+                    for v in action_value.values():
+                        print(f"The value of {state[0]} is {v}")
+            state = self.game.reset()
+            is_terminal = False
+            sa_pair_ls = []  # state-action pair
+            reward_ls = []
+            while not is_terminal:
+                action = policy[state]
+                sa_pair_ls.append((state, action))
+                is_terminal, reward, state = self.game.one_move(state, action)
+                reward_ls.append(reward)
+            g = 0
+            for (state, action), reward in \
+                    zip(reversed(sa_pair_ls), reversed(reward_ls)):
+                g = self.gamma * g + reward
+                q_value[state][action](g)
+
+if __name__ == '__main__':
+    dealer = 10
+    black_jack = BlackJack(dealer_start=dealer, player_start=range(16, 21))
+    env = TDRL(black_jack)
+    policy = {(x, dealer): 'hit' if x >= 17 else 'stick' for x in range(12, 22)}
+    env.policy_eval(policy, 100000)

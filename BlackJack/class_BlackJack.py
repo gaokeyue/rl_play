@@ -1,6 +1,6 @@
-from BlackJack.player import Player, Dealer
-from BlackJack.qlearner import Learner
-from BlackJack.class_Deck_BlackJack import DeckBlackJack
+# from BlackJack.player import Player, Dealer
+# from BlackJack.qlearner import Learner
+# from BlackJack.class_Deck_BlackJack import DeckBlackJack
 import random
 
 class BlackJack:
@@ -24,7 +24,7 @@ class BlackJack:
 
     def draw(self):
         if self.deck is None:  # draw uniformly from (A,2,3,...,T,J,Q,K)
-            return random.choices(self.ranks, weights=[1] * 9 + [4])[0]
+            return random.choice(self.ranks)
         return self.deck.pop()
 
     def reset(self):
@@ -33,7 +33,10 @@ class BlackJack:
             player_sum = self.draw()
             player_sum += self.draw()
         else:
-            player_sum = self.player_start
+            try:
+                player_sum = random.choice(self.player_start)
+            except TypeError:
+                player_sum = self.player_start
         if self.dealer_start is None:
             dealer_sum = self.draw()  # not exact. We may need to differentiate card shown and not shown
         else:
@@ -44,7 +47,7 @@ class BlackJack:
         """:return is_terminal, reward, new_state"""
         player_sum, dealer_sum = state
         if action == 'hit':
-            player_sum += self.deck.draw()
+            player_sum += self.draw()
             new_state = (player_sum, dealer_sum)
             if player_sum > 21:
                 is_terminal = True
@@ -56,7 +59,7 @@ class BlackJack:
         elif action == 'stick':
             is_terminal = True
             while dealer_sum < 17:
-                dealer_sum += self.deck.draw()
+                dealer_sum += self.draw()
                 if dealer_sum > 21:
                     return is_terminal, self.stake, (player_sum, dealer_sum)
             new_state = (player_sum, dealer_sum)
