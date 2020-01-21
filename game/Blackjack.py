@@ -6,7 +6,6 @@ import random
 class BlackJack(Game):
 
     def __init__(self):
-        self.q = defaultdict(dict)
         self._actions = ['hit', 'stand']
         self.is_terminal = False
         self._state = ('shown_card', 'hands_sum', 'usable_or_not')
