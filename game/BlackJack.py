@@ -1,6 +1,3 @@
-# from BlackJack.player import Player, Dealer
-# from BlackJack.qlearner import Learner
-# from BlackJack.class_Deck_BlackJack import DeckBlackJack
 import random
 
 class BlackJack:
