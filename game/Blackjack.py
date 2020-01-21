@@ -98,7 +98,7 @@ class BlackJack(Game):
                 reward = 0
             else:
                 reward = 1
-            new_state = ('stand', self.state[1], self.state[2])
+            new_state = (self.state[0], 'stand', self.state[2])
         return new_state, reward, self.is_terminal
 
     def get_action(self):
@@ -111,4 +111,4 @@ if __name__ == '__main__':
     blackjack.reset()
     print(blackjack.state)
     print(blackjack.get_action())
-    print(blackjack.one_move('hit'))
+    print(blackjack.one_move('stand'))

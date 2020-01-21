@@ -68,105 +68,105 @@ from
 #         return True if self.state == self._terminal_state else False
 
 
-# class BlackJack:
-#
-#     def __init__(self):
-#         self.q = defaultdict(dict)
-#         self.state = ('shown_card', 'hands_sum', 'usable_or_not')
-#         self._actions = ['hit', 'stand']
-#         self.if_terminal = False
-#
-#     def init_state(self):
-#         # usable_ace = False
-#         # shown_card = random.choice(cards)
-#         shown_card = 'K'
-#         hands_sum = random.randint(16, 21)
-#         # hands_sum = 16
-#         # card_one, card_two = random.choice
-#         # s(cards, k=2)
-#         # hands_sum = cards_count[card_one] + cards_count[card_two]
-#         # if card_two == 'A' or card_two == 'A':
-#         #     usable_ace = True
-#         # if hands_sum == 22:
-#         #     hands_sum = 12
-#         # usable_ace = random.choice([True, False])
-#         usable_ace = False
-#         return shown_card, hands_sum, usable_ace
-#
-#     def dealer(self, seed=None):
-#         random.seed = seed
-#         usable_ace = False
-#         card_two = random.choice(cards)
-#         shown_card = self.state[0]
-#         count = cards_count[shown_card] + cards_count[card_two]
-#         if card_two == 'A' or shown_card == 'A':
-#             usable_ace = True
-#         if count == 22:
-#             count = 12
-#         while count < 17:
-#             hit_card = random.choice(cards)
-#             count += cards_count[hit_card]
-#             if count > 21:
-#                 if (not usable_ace) and (hit_card != 'A'):
-#                     return 0
-#                 else:
-#                     count = count - 10
-#                     usable_ace = False
-#             if (hit_card == 'A') and usable_ace:
-#                 usable_ace = True
-#         return count
-#
-#     def sys_init(self):
-#         self.q['busted']['busted'] = 0
-#         self.q['stand']['stand'] = 0
-#         for shown_card in cards:
-#             for hands_sum in range(12, 22):
-#                 state = (shown_card, hands_sum, True)
-#                 self.q[state]['hit'] = 0
-#                 self.q[state]['stand'] = 0
-#                 state = (shown_card, hands_sum, False)
-#                 self.q[state]['hit'] = 0
-#                 self.q[state]['stand'] = 0
-#
-#     def next_state(self, action):
-#         if action == 'hit':
-#             new_card = random.choice(cards)
-#             shown_card, hands_sum, usable_ace = self.state
-#             hands_sum += cards_count[new_card]
-#             new_state = (shown_card, hands_sum, usable_ace)
-#             self.state = new_state
-#             if hands_sum > 21:
-#
-#                 if (not usable_ace) & (new_card is not 'A'):
-#                     reward = -1
-#                     self.if_terminal = True
-#                     new_state = "busted"
-#                 else:
-#                     if hands_sum == 32:
-#                         reward = -1
-#                         self.if_terminal = True
-#                         new_state = "busted"
-#                     else:
-#                         hands_sum -= 10
-#                         if (new_card is 'A') & usable_ace:
-#                             usable_ace = True
-#                         else:
-#                             usable_ace = False
-#                         new_state = (shown_card, hands_sum, usable_ace)
-#                         reward = 0
-#             else:
-#                 reward = 0
-#         else:
-#             self.if_terminal = True
-#             dealer_pts = self.dealer()
-#             if self.state[1] < dealer_pts:
-#                 reward = -1
-#             elif self.state[1] == dealer_pts:
-#                 reward = 0
-#             else:
-#                 reward = 1
-#             new_state = 'stand'
-#         return new_state, reward
+class BlackJack:
+
+    def __init__(self):
+        self.q = defaultdict(dict)
+        self.state = ('shown_card', 'hands_sum', 'usable_or_not')
+        self._actions = ['hit', 'stand']
+        self.if_terminal = False
+
+    def init_state(self):
+        # usable_ace = False
+        # shown_card = random.choice(cards)
+        shown_card = 'K'
+        hands_sum = random.randint(16, 21)
+        # hands_sum = 16
+        # card_one, card_two = random.choice
+        # s(cards, k=2)
+        # hands_sum = cards_count[card_one] + cards_count[card_two]
+        # if card_two == 'A' or card_two == 'A':
+        #     usable_ace = True
+        # if hands_sum == 22:
+        #     hands_sum = 12
+        # usable_ace = random.choice([True, False])
+        usable_ace = False
+        return shown_card, hands_sum, usable_ace
+
+    def dealer(self, seed=None):
+        random.seed = seed
+        usable_ace = False
+        card_two = random.choice(cards)
+        shown_card = self.state[0]
+        count = cards_count[shown_card] + cards_count[card_two]
+        if card_two == 'A' or shown_card == 'A':
+            usable_ace = True
+        if count == 22:
+            count = 12
+        while count < 17:
+            hit_card = random.choice(cards)
+            count += cards_count[hit_card]
+            if count > 21:
+                if (not usable_ace) and (hit_card != 'A'):
+                    return 0
+                else:
+                    count = count - 10
+                    usable_ace = False
+            if (hit_card == 'A') and usable_ace:
+                usable_ace = True
+        return count
+
+    def sys_init(self):
+        self.q['busted']['busted'] = 0
+        self.q['stand']['stand'] = 0
+        for shown_card in cards:
+            for hands_sum in range(12, 22):
+                state = (shown_card, hands_sum, True)
+                self.q[state]['hit'] = 0
+                self.q[state]['stand'] = 0
+                state = (shown_card, hands_sum, False)
+                self.q[state]['hit'] = 0
+                self.q[state]['stand'] = 0
+
+    def next_state(self, action):
+        if action == 'hit':
+            new_card = random.choice(cards)
+            shown_card, hands_sum, usable_ace = self.state
+            hands_sum += cards_count[new_card]
+            new_state = (shown_card, hands_sum, usable_ace)
+            self.state = new_state
+            if hands_sum > 21:
+
+                if (not usable_ace) & (new_card is not 'A'):
+                    reward = -1
+                    self.if_terminal = True
+                    new_state = "busted"
+                else:
+                    if hands_sum == 32:
+                        reward = -1
+                        self.if_terminal = True
+                        new_state = "busted"
+                    else:
+                        hands_sum -= 10
+                        if (new_card is 'A') & usable_ace:
+                            usable_ace = True
+                        else:
+                            usable_ace = False
+                        new_state = (shown_card, hands_sum, usable_ace)
+                        reward = 0
+            else:
+                reward = 0
+        else:
+            self.if_terminal = True
+            dealer_pts = self.dealer()
+            if self.state[1] < dealer_pts:
+                reward = -1
+            elif self.state[1] == dealer_pts:
+                reward = 0
+            else:
+                reward = 1
+            new_state = 'stand'
+        return new_state, reward
 
 
 class QLearning(BlackJack):
