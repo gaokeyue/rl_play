@@ -1,14 +1,21 @@
+import abc
 
-class env:
-    def __init__(self):
-        pass
+class Game(abc.ABC):
 
+    @property
+    @abc.abstractmethod
+    def state(self):
+        """return the current state"""
+
+    @abc.abstractmethod
     def reset(self):
-        pass
+        """self.state = initial state and return state"""
 
-    def step(self, action):
-        # return state, reward, is_terminal, debug_info
-        pass
+    @abc.abstractmethod
+    def one_move(self, action):
+        """return state, reward, is_terminal, debug_info"""
 
+    @abc.abstractmethod
     def get_action(self):
-        pass
+        """return the action space from self.space. It's possible that action is independent of state"""
+
