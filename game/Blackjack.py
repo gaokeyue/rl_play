@@ -1,4 +1,4 @@
-from game import Game
+from game.game import Game
 from collections import defaultdict
 import random
 
@@ -105,9 +105,9 @@ class BlackJack(Game):
         return self._actions
 
 
-blackjack = BlackJack()
 
 if __name__ == '__main__':
+    blackjack = BlackJack()
     blackjack.reset()
     print(blackjack.state)
     print(blackjack.get_action())
