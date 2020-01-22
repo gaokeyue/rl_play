@@ -4,6 +4,7 @@ from collections import defaultdict
 
 class Game(abc.ABC):
     state_space = None  # developers are highly recommended to list the entire state_space
+    gamma = 1  # rate of decay of reward
 
     @abc.abstractmethod
     def reset(self, *states, **kwargs):
