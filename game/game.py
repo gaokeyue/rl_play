@@ -4,6 +4,7 @@ from collections import defaultdict
 
 class Game(abc.ABC):
     state_space = None  # developers are highly recommended to list the entire state_space
+    gamma = 1  # rate of decay of reward
 
     @abc.abstractmethod
     def reset(self, *states, **kwargs):
@@ -13,7 +14,7 @@ class Game(abc.ABC):
 
     @abc.abstractmethod
     def one_move(self, action):
-        """return state, reward, is_terminal, debug_info.
+        """return state, reward, is_terminal.
         The reward are expected to be normalized with reward_max = 1 and reward_min = 0/1.
         """
 
