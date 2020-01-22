@@ -14,14 +14,13 @@ class BlackJack(Game):
             '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, 'A': 11
         }
 
-
-    def reset(self, state=None):
+    def reset(self, *states):
         """
         state: (shown_card, hands_sum, usable_ace)
         """
         # usable_ace = False
-        if state:
-            shown_card, hands_sum, usable_ace = state
+        if len(states) > 0:
+            shown_card, hands_sum, usable_ace = random.choice(states)
         else:
             shown_card = random.choice(self.cards)
             hands_sum = random.randint(12, 21)
@@ -110,11 +109,8 @@ class BlackJack(Game):
         return q
 
 
-blackjack = BlackJack()
-
-
 if __name__ == '__main__':
-
+    blackjack = BlackJack()
     blackjack.reset()
     print(blackjack._state)
     print(blackjack.available_actions())

@@ -1,7 +1,7 @@
 import numpy as np
 from _collections import defaultdict
 import random
-from game.Blackjack import blackjack
+from game.blackjack import BlackJack
 from tqdm import tqdm
 
 
@@ -97,12 +97,12 @@ class SARSA():
 
 
 if __name__ == '__main__':
-    # q = QLearning(blackjack)
-    # q.fit()
-    # q.print_policy()
-    sarsa = SARSA(blackjack)
-    sarsa.fit()
-    sarsa.print_policy()
+    q = QLearning(BlackJack())
+    q.fit()
+    q.print_policy()
+    # sarsa = SARSA(BlackJack())
+    # sarsa.fit()
+    # sarsa.print_policy()
 
 
 
