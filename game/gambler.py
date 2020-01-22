@@ -1,6 +1,7 @@
 from game import Game
 import random
 
+
 class Gambler(Game):
     def __init__(self, p_h=.4, goal=100):
         self.p_h = p_h

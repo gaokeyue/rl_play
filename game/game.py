@@ -14,7 +14,7 @@ class Game(abc.ABC):
 
     @abc.abstractmethod
     def one_move(self, action):
-        """return state, reward, is_terminal, debug_info.
+        """return state, reward, is_terminal.
         The reward are expected to be normalized with reward_max = 1 and reward_min = 0/1.
         """
 
