@@ -35,4 +35,6 @@ class Gambler(Game):
         return range(1, min(state, self.goal - state) + 1)
 
 if __name__ == '__main__':
-    gambler = Gambler()
+    gambler = Gambler(goal=10)
+    q = gambler.q_initializer()
+    print(q)

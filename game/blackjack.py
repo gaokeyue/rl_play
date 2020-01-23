@@ -14,6 +14,10 @@ class BlackJack(Game):
             '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, 'A': 11
         }
 
+    @property
+    def state(self):
+        return self._state
+
     def reset(self, *states):
         """
         state: (shown_card, hands_sum, usable_ace)

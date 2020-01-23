@@ -1,5 +1,5 @@
 from BlackJack.player import Player
-from game.BlackJack import BlackJack
+from game.blackjack import BlackJack
 import pandas as pd
 import random
 from collections import defaultdict
