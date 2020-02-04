@@ -29,6 +29,8 @@ class BlackJack(Game):
             shown_card = random.choice(self.cards)
             hands_sum = random.randint(12, 21)
             usable_ace = random.choice([True, False])
+        # if shown_card in ['K', 'Q', 'J']:
+        #     shown_card = 'T'
         state = shown_card, hands_sum, usable_ace
         self._state = state
         return state
@@ -82,6 +84,7 @@ class BlackJack(Game):
                         else:
                             usable_ace = False
                         new_state = (shown_card, hands_sum, usable_ace)
+                        self._state = new_state
                         reward = 0
             else:
                 reward = 0
@@ -116,7 +119,7 @@ class BlackJack(Game):
 if __name__ == '__main__':
     blackjack = BlackJack()
     blackjack.reset()
-    print(blackjack._state)
+    # print(blackjack._state)
     print(blackjack.available_actions())
     print(blackjack.one_move('hit'))
     print(blackjack.q_initializer())
