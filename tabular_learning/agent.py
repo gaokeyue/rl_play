@@ -1,5 +1,8 @@
 from collections import defaultdict
 import utils
+from game.blackjack import BlackJack
+
+import numpy as np
 
 
 class Agent:
@@ -37,6 +40,7 @@ class Agent:
     def policy_eval_on(self, policy, n_episodes=10 ** 5):
         """Using Monte-Carlo to evaluate a given policy.
         :param policy (dict) -- only consider deterministic policy, action = policy[state]
+        :param n_episodes (int)
         """
         value_fun = {state: utils.Averager() for state in policy}
         for i in range(n_episodes):
@@ -49,3 +53,24 @@ class Agent:
 
     def policy_eval_off(self, policy):
         pass
+
+
+if __name__ == '__main__':
+
+    #
+    game1 = BlackJack()
+    states = [(shown_card, hands_sum, usable_or_not)
+              for shown_card in game1.cards[3:]
+              for hands_sum in range(12, 22)
+              for usable_or_not in (True, False)]
+    policy1 = {key: 'stand' if key[1] >= 20 else 'hit' for key in states}
+    agent1 = Agent(game1)
+    v = agent1.policy_eval_on(policy1, n_episodes=5*10**5)
+    v_usable_ace = np.zeros((10, 10))
+    for key, value in v.items():
+        if key[2]:
+            i = key[1] - 12
+            j = 0 if key[0] is 'A' else (game1.cards_count[key[0]] - 1)
+            v_usable_ace[i, j] = value.average
+    print('haha')
+    #
