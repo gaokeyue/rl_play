@@ -64,7 +64,7 @@ class BlackJack(Game):
             shown_card, hands_sum, usable_ace = self._state
             hands_sum += self.cards_count[new_card]
             new_state = (shown_card, hands_sum, usable_ace)
-            self._state = new_state
+            # self._state = new_state
             if hands_sum > 21:
                 if (not usable_ace) & (new_card is not 'A'):
                     reward = -1
