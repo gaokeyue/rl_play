@@ -95,6 +95,7 @@ class BlackJack(Game):
             else:
                 reward = 1
             new_state = (self._state[0], 'stand', self._state[2])
+        self._state = new_state
         return new_state, reward, is_terminal
 
     def available_actions(self, state=None):
