@@ -192,7 +192,7 @@ def monte_carlo_on_policy(episodes):
     states_no_usable_ace = np.zeros((10, 10))
     # initialze counts to 1 to avoid 0 being divided
     states_no_usable_ace_count = np.ones((10, 10))
-    for i in tqdm(range(0, episodes)):
+    for _ in tqdm(range(0, episodes)):
         _, reward, player_trajectory = play(target_policy_player)
         for (usable_ace, player_sum, dealer_card), _ in player_trajectory:
             player_sum -= 12
@@ -227,8 +227,8 @@ def monte_carlo_es(episodes):
     for episode in tqdm(range(episodes)):
         # for each episode, use a randomly initialized state and action
         initial_state = [bool(np.random.choice([0, 1])),
-                       np.random.choice(range(12, 22)),
-                       np.random.choice(range(1, 11))]
+                         np.random.choice(range(12, 22)),
+                         np.random.choice(range(1, 11))]
         initial_action = np.random.choice(ACTIONS)
         current_policy = behavior_policy if episode else target_policy_player
         _, reward, trajectory = play(current_policy, initial_state, initial_action)
@@ -250,7 +250,7 @@ def monte_carlo_off_policy(episodes):
     rhos = []
     returns = []
 
-    for i in range(0, episodes):
+    for _ in range(0, episodes):
         _, reward, player_trajectory = play(behavior_policy_player, initial_state=initial_state)
 
         # get the importance ratio
@@ -306,7 +306,7 @@ def figure_5_1():
         fig.set_xlabel('dealer showing', fontsize=30)
         fig.set_title(title, fontsize=30)
 
-    plt.savefig('../images/figure_5_1.png')
+    plt.savefig('figure_5_1.png')
     plt.close()
 
 
@@ -343,7 +343,7 @@ def figure_5_2():
         fig.set_xlabel('dealer showing', fontsize=30)
         fig.set_title(title, fontsize=30)
 
-    plt.savefig('../images/figure_5_2.png')
+    plt.savefig('figure_5_2.png')
     plt.close()
 
 
@@ -353,7 +353,7 @@ def figure_5_3():
     runs = 100
     error_ordinary = np.zeros(episodes)
     error_weighted = np.zeros(episodes)
-    for i in tqdm(range(0, runs)):
+    for _ in tqdm(range(0, runs)):
         ordinary_sampling_, weighted_sampling_ = monte_carlo_off_policy(episodes)
         # get the squared error
         error_ordinary += np.power(ordinary_sampling_ - true_value, 2)
@@ -368,11 +368,11 @@ def figure_5_3():
     plt.xscale('log')
     plt.legend()
 
-    plt.savefig('../images/figure_5_3.png')
+    plt.savefig('figure_5_3.png')
     plt.close()
 
 
 if __name__ == '__main__':
-    figure_5_1()
-    # figure_5_2()
+    # figure_5_1()
+    figure_5_2()
     # figure_5_3()
