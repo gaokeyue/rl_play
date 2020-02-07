@@ -16,8 +16,8 @@ class BlackJack(Game):
         }
         self.actions = ['hit', 'stand']
         self.state_space = [(shown_card, hands_sum, usable_ace)
-                            for shown_card in self._cards[3:]  # @Xi: add [3:] for debug
-                            for hands_sum in range(12, 22)
+                            for shown_card in self._cards  # @Xi: add [3:] for debug
+                            for hands_sum in range(12, 23)
                             for usable_ace in (True, False)]
 
     @property
@@ -39,8 +39,8 @@ class BlackJack(Game):
             shown_card = random.choice(self._cards)
             hands_sum = random.randint(12, 21)
             usable_ace = random.choice([True, False])
-        if shown_card in ['K', 'Q', 'J']:  # @Xi: these 2 lines added for debug
-            shown_card = 'T'
+        # if shown_card in ['K', 'Q', 'J']:  # @Xi: these 2 lines added for debug
+        #     shown_card = 'T'
         state = shown_card, hands_sum, usable_ace
         self._state = state
         return state
@@ -80,12 +80,12 @@ class BlackJack(Game):
                 if (not usable_ace) & (new_card is not 'A'):
                     reward = -1
                     is_terminal = True
-                    new_state = (shown_card, "busted", usable_ace)
+                    new_state = (shown_card, 22, usable_ace)
                 else:
                     if hands_sum == 32:
                         reward = -1
                         is_terminal = True
-                        new_state = (shown_card, "busted", usable_ace)
+                        new_state = (shown_card, 22, usable_ace)
                     else:
                         hands_sum -= 10
                         if (new_card is 'A') & usable_ace:
@@ -105,7 +105,7 @@ class BlackJack(Game):
                 reward = 0
             else:
                 reward = 1
-            new_state = (self.state[0], 'stand', self.state[2])
+            new_state = (self.state[0], self.state[1], self.state[2])
         self._state = new_state
         return new_state, reward, is_terminal
 
