@@ -47,13 +47,12 @@ class BlackJack(Game):
             hit_card = random.choice(self.cards)
             count += self.cards_count[hit_card]
             if count > 21:
-                if not usable_ace:
+                if (not usable_ace) and (hit_card != 'A'):
                     return 0
                 else:
-                    usable_ace = False
                     count = count - 10
-            if hit_card is 'A':
-                usable_ace = True
+                    if hit_card != 'A':
+                        usable_ace = not usable_ace
         return count
 
     def one_move(self, action):
