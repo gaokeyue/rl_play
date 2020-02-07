@@ -30,7 +30,7 @@ class Game(abc.ABC):
         It's possible that action is independent of state.
         """
 
-    def is_terminal(self,state=None):
+    def is_terminal(self, state=None):
         actions = self.available_actions(state)
         return len(actions) == 0
 
