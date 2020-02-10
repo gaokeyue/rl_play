@@ -1,14 +1,11 @@
-from collections import defaultdict, Counter
-import random
-from game.blackjack import BlackJack
 import utils
-import operator
-import pandas as pd
 
 
 class Agent:
-    def __init__(self, game):
+    def __init__(self, game, n_trials=5 * 10 ** 4):
         self.game = game
+        self.n_trials = n_trials
+        self.competitive_thresh = 0.05
 
     @staticmethod
     def greedy_pick(action_value_dict, find_one=True, thresh=0):
@@ -26,6 +23,15 @@ class Agent:
                     best_actions.append(action)
             return best_actions
 
+    @staticmethod
+    def q2pi(q):
+        return {state: Agent.greedy_pick(action_value_dict)
+                for state, action_value_dict in q.items()}
+
+    @staticmethod
+    def compare_dict(d1, d2):
+        return [k for k in d1 if d1[k] != d2[k]]
+
     def policy_run(self, policy, state0=None):
         state = self.game.reset(state0)
         state_ls = []
@@ -38,96 +44,62 @@ class Agent:
             reward_ls.append(reward)
         return state_ls, reward_ls
 
-    def policy_eval_on(self, policy, n_episodes=5):
-        """Using Monte-Carlo to evaluate a given policy.
-        :param policy (dict) -- only consider deterministic policy, action = policy[state]
-        :param n_episodes -- unit is Wan
+    def eval_pi_state_action_one(self, pi, state, action):
+        """Given a policy pi, evaluate Q_pi(state, action). Note that action not
+        necessarily equals pi[state]
         """
-        n_episodes *= 10 ** 4
-        value_fun = {state: utils.Averager() for state in policy}
-        soi = list(policy)
-        for i in range(n_episodes):
-            state0 = random.choice(soi)
-            state_ls, reward_ls = self.policy_run(policy, state0)
-            v = 0
-            for s, r in zip(reversed(state_ls), reversed(reward_ls)):
-                v = self.game.gamma * v + r
-                value_fun[s].add_new(v)
-        return value_fun
+        game = self.game
+        result = utils.Averager()
+        for _ in range(self.n_trials):
+            game.reset(state)
+            tmp_a = action
+            total_return = 0
+            t = 0
+            while True:
+                tmp_s, reward, is_terminal = game.one_move(tmp_a)
+                total_return += reward * game.gamma ** t
+                t += 1
+                if is_terminal:
+                    result.add_new(total_return)
+                    break
+                else:
+                    tmp_a = pi[tmp_s]
+        return result.average
 
-    def q_eval(self, q):
-        # first get state value function
-        state_value = {}
-        pi_star = {}
-        for state, action_value in q.items():
-            a, v = max(action_value.items(), key=operator.itemgetter(1))
-            state_value[state] = v
-            pi_star[state] = a
-        self.policy_eval_on(pi_star, )
+    def policy_eval(self, policy, state_action_oi=None):
+        """Using Monte-Carlo to evaluate Q_pi(S, A) for (S, A) of interest.
+        :param policy (dict) -- only consider deterministic policy, action = policy[state]
+        :param state_action_oi (dict) -- (state, action) pair of interest,
+        if None, then evaluate every possible state-action pair where state in policy
+        """
+        if state_action_oi is None:
+            state_action_oi = {state: self.game.available_actions(state) for state in policy}
+        q = {}
+        for state, actions in state_action_oi.items():
+            action_value_dict = {}
+            for action in actions:
+                v = self.eval_pi_state_action_one(policy, state, action)
+                action_value_dict[action] = v
+                print(F"{state}, {action} --> {v}")
+            q[state] = action_value_dict
+        return q
 
-    def policy_eval_off(self, policy):
-        pass
-
-
-def brutal_test(n=5 * 10 ** 5):
-    player = Agent(BlackJack())
-    state0 = ("K", 16, False)
-    stick_cnt = Counter()
-    print(f"Initial state is {state0}")
-    print("-" * 30)
-    print("If we choose stick")
-    for _ in range(n):
-        player.game.reset(state0)
-        state, reward, is_terminal = player.game.one_move('stick')
-        assert is_terminal
-        stick_cnt[reward] += 1
-    print(stick_cnt)
-    print(round(sum(r * freq / n for r, freq in stick_cnt.items()), 6))
-    print('-' * 30)
-    print("If we choose hit then stick")
-    hit_cnt = Counter()
-    for _ in range(n):
-        player.game.reset(state0)
-        state, reward, is_terminal = player.game.one_move('hit')
-        if is_terminal:
-            hit_cnt[reward] += 1
-        else:
-            state, reward, is_terminal = player.game.one_move('stick')
-            assert is_terminal
-            hit_cnt[reward] += 1
-    print(hit_cnt)
-    print(round(sum(r * freq / n for r, freq in hit_cnt.items()), 6))
-
-
-def get_q_star(n_episodes=10 ** 5):
-    player = Agent(BlackJack())
-    # states of interest
-    soi = [("K", i, False) for i in range(12, 22)]
-    pi_star = {state: 'hit' if state[1] <= 16 else 'stand' for state in soi}
-    q_star = defaultdict(dict)
-    game = player.game
-    for state in soi:
-        for action in ['hit', 'stand']:
-            action_value = utils.Averager()
-            for _ in range(n_episodes):
-                game.reset(state)
-                tmp_a = action
-                while True:
-                    tmp_s, reward, is_terminal = game.one_move(tmp_a)
-                    if is_terminal:
-                        action_value.add_new(reward)
-                        break
-                    else:
-                        tmp_a = pi_star[tmp_s]
-            print(f"({state[1]}, {action}) is {action_value.average:.6f}")
-            q_star[state[1]][action] = action_value.average
-    return q_star
+    def q_eval(self, q_star):
+        sa_oi = {}
+        pi_star = self.q2pi(q_star)
+        # sift state action of interest
+        for state, a_star in pi_star.items():
+            a_star = pi_star[state]
+            action_value_dict = q_star[state]
+            v_star = action_value_dict[a_star]
+            sa_oi[state] = [action for action, value in action_value_dict.items()
+                            if v_star - value < self.competitive_thresh]
+        q_hat = self.policy_eval(pi_star, sa_oi)
+        pi_hat = self.q2pi(q_hat)
+        # compare pi_star and pi_hat and retrieve states that
+        problem_states = [state for state in pi_hat if pi_hat[state] != pi_star[state]]
+        return problem_states
 
 
 if __name__ == '__main__':
     print('haha')
-    n = 1 * 10 ** 5
-    q_star = get_q_star(n)
-    df = pd.DataFrame(q_star).T
-    print(df)
-    brutal_test(n)

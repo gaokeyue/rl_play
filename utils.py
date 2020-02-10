@@ -38,15 +38,18 @@ class Averager:
 
     def __init__(self):
         self.n = 0
-        self.average = 0
+        self.total = 0
 
     def __call__(self, x):
         self.add_new(x)
 
     def add_new(self, x):
+        self.total += x
         self.n += 1
-        eta = 1 / self.n
-        self.average = (1 - eta) * self.average + eta * x
+
+    @property
+    def average(self):
+        return self.total / self.n
 
     def __repr__(self):
         return repr(self.average)
