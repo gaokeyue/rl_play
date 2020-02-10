@@ -1,6 +1,7 @@
 from tabular_learning import Agent
 import numpy as np
 from tqdm import tqdm
+import utils
 
 
 class QLearner(Agent):
@@ -30,8 +31,9 @@ class QLearner(Agent):
                 action = self.choose_action(state, q)
                 next_state, reward, is_terminal = game.one_move(action)
                 target = np.max(list(value.average for key, value in q[next_state].items()))
-                q[state][action].average += self.alpha * (reward + \
-                                                          self.gamma * target - q[state][action].average)
+                action_value = q[state][action].average
+                action_value = self.alpha * (reward + self.gamma * target - action_value)
+                q[state][action].add_new(action_value)
                 state = next_state
         return q
 
@@ -45,9 +47,10 @@ class QLearner(Agent):
             while not is_terminal:
                 next_state, reward, is_terminal = game.one_move(action)
                 next_action = self.choose_action(next_state, q)
-                q[state][action].average += self.alpha * (reward + self.gamma
-                                                          * q[next_state][next_action].average - q[state][
-                                                              action].average)
+                action_value = q[state][action].average
+                action_value += self.alpha * (reward + self.gamma
+                                                          * q[next_state][next_action].average - action_value)
+                q[state][action].add_new(action_value)
                 state = next_state
                 action = next_action
         return q
@@ -68,8 +71,9 @@ class QLearner(Agent):
                             [(len(q[next_state]) * (1 - self.epsilon))]
                 prob_list = [prob / sum(prob_dist) for prob in prob_dist]
                 target = np.dot(candidate_lst, prob_list)
-                q[state][action].average += self.alpha * (reward + self.gamma
-                                                          * target - q[state][action].average)
+                action_value = q[state][action].average
+                action_value += self.alpha * (reward + self.gamma * target - action_value)
+                q[state][action].add_new(action_value)
                 state = next_state
                 action = next_action
         return q
@@ -79,6 +83,9 @@ if __name__ == '__main__':
     from game.blackjack import BlackJack
 
     test = BlackJack()
-    test_q = QLearner(test, 0.05, 0.1, 1)
-    q1 = test_q.expected_sarsa(5 * 10 ** 5)
-    
+    test_q = QLearner(test, 0.1, 1, 1)
+    q1 = test_q.q(5 * 10 ** 5)
+
+    for key, value in q1.items():
+        if key[0] == 'K' and not key[2]:
+            print((key, value))
