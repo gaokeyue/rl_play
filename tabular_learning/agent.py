@@ -10,16 +10,16 @@ class Agent:
         self.game = game
 
     @staticmethod
-    def greedy_pick(action_value_dict, find_one=True, thresh=0):
+    def greedy_pick(action_value_dict, find_one=False, thresh=0):
         if find_one:  # find one argmaxizer
             return max(action_value_dict, key=action_value_dict.get)
         else:
             best_score = -float('inf')
             best_actions = []
             for action, value in action_value_dict.items():
-                flag = utils.compare(value.average, best_score, thresh)
+                flag = utils.compare(value, best_score, thresh)
                 if flag is 1:  # a strictly better action is found
-                    best_score = value.average
+                    best_score = value
                     best_actions = [action]
                 elif flag is 0:  # an action which ties the best action is found
                     best_actions.append(action)
