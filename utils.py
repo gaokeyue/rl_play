@@ -37,9 +37,9 @@ def allmax(input_dict, thresh):
 
 class Averager:
 
-    def __init__(self):
+    def __init__(self, default_value=0):
         self.n = 0
-        self.total = 0
+        self.total = default_value
 
     def __call__(self, x):
         self.add_new(x)
@@ -50,7 +50,7 @@ class Averager:
 
     @property
     def average(self):
-        return self.total / self.n
+        return self.total / self.n if self.n else self.total
 
     def __repr__(self):
         return repr(self.average)

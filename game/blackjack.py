@@ -13,6 +13,10 @@ class BlackJack(Game):
             'K': 10, 'Q': 10, 'J': 10, 'T': 10, '9': 9, '8': 8,
             '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, 'A': 11
         }
+        self.state_space = [(shown_card, hands_sum, usable_ace)
+                            for shown_card in self.cards
+                            for hands_sum in range(11, 22)
+                            for usable_ace in (True, False)]
 
     @property
     def state(self):
@@ -81,7 +85,7 @@ class BlackJack(Game):
             if hands_sum > 21:
                 reward = -1
                 is_terminal = True
-                new_state = (shown_card, "busted", usable_ace)
+                new_state = (shown_card, 'busted', usable_ace)
             else:
                 reward = 0
         else:
@@ -100,17 +104,11 @@ class BlackJack(Game):
     def available_actions(self, state=None):
         return self._actions
 
-    def q_initializer(self):
-        q = defaultdict(dict)
-        for shown_card in self.cards:
-            for hands_sum in (list(range(12, 22)) + ['busted', 'stand']):
-                state = (shown_card, hands_sum, True)
-                q[state]['hit'] = 0
-                q[state]['stand'] = 0
-                state = (shown_card, hands_sum, False)
-                q[state]['hit'] = 0
-                q[state]['stand'] = 0
-        return q
+    def policy_initializer(self):
+        """
+        :return: the initial policy should be a deterministic policy
+        """
+        return {state: 'stand' if state[1] >= 20 else 'hit' for state in self.state_space}
 
 
 if __name__ == '__main__':
