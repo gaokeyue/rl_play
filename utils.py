@@ -1,8 +1,6 @@
-import random
 import numpy as np
 import time
 from functools import wraps
-import numbers
 
 def convex_comb(x, y, eta):
     """convex combination between x and y, eta in [0, 1]"""

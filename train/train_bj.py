@@ -1,5 +1,7 @@
+import os
+import pickle
 import pandas as pd
-from tabular_learning import Agent
+from tabular_learning.q_learner_plus import QLearner
 from game import BlackJack
 
 def target_policy():
@@ -13,30 +15,43 @@ def target_policy():
                 pi[state] = 'stand' if hand_sum >= 18 else 'hit'
             elif dealer in "9TJQKA":
                 pi[state] = 'stand' if hand_sum >= 19 else 'hit'
-        if dealer in "23":
-            pi[state] = 'stand' if hand_sum >= 13 else 'hit'
-        elif dealer in '456':
-            pi[state] = 'stand' if hand_sum >= 12 else 'hit'
-        elif dealer in '789KA':
-            pi[state] = 'stand' if hand_sum >= 17 else 'hit'
+        else:
+            if dealer in "23":
+                pi[state] = 'stand' if hand_sum >= 13 else 'hit'
+            elif dealer in '456':
+                pi[state] = 'stand' if hand_sum >= 12 else 'hit'
+            elif dealer in '789TJQKA':
+                pi[state] = 'stand' if hand_sum >= 17 else 'hit'
     return pi
 
 def get_q_star(soi=None, n=10**5):
     """compute Q*(S, A) for selected states S
     :param soi -- states of interest, e.g. [("K", 16, False), ("K", 17, False)...]
     if None, include all states in pi_star"""
-    player = Agent(BlackJack(), n)
+    player = QLearner(BlackJack())
     pi_star = target_policy()
     if soi is not None:
         soi = {state: ['hit', 'stand'] for state in soi}
-    q_star = player.policy_eval(pi_star, soi)
+    q_star = player.policy_eval(pi_star, soi, n)
     return q_star
+
+
 
 if __name__ == '__main__':
     print('haha')
-    n = 5 * 10 ** 3
-    q_star = get_q_star(n=n)
-    df = pd.DataFrame(q_star).T
-    print(df.head())
-    df['better'] = df.apply(lambda row: 'hit' if row['hit'] > row['stand'] else 'stand', axis=1)
-    # df.to_csv('~/Desktop/cankao.csv')
+    # n = 5 * 10 ** 3
+    xx = target_policy()
+    project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    data_dir = os.path.join(project_dir, 'data')
+    player = QLearner(BlackJack())
+    # crude run
+    q0 = None
+    alpha = 10**-3
+    for thresh in [.5, .1, .05]:
+        q0 = player.q_learning(q0=q0, alpha=10**-3, n_episodes=10**7)
+        q0 = player.action_prune(q0, thresh)
+        alpha *= .5
+    # fine tune
+    pi_star = player.fine_tune(q0)
+    player.compare_dict(pi_star, target_policy())
+

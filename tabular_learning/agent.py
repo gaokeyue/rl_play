@@ -11,10 +11,9 @@ from tqdm import tqdm
 class Agent:
     def __init__(self, game):
         self.game = game
-        self.project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        self.data_dir = os.path.join(project_dir, 'data')
 
     def q_initializer(self):
+        """may to be deprecated in the future since the default action value is set to 1. """
         if self.game.state_space is None:
             return defaultdict(lambda: defaultdict(int))
         game = self.game
@@ -28,7 +27,8 @@ class Agent:
         return q
 
     @staticmethod
-    def greedy_pick(action_value_dict, find_one=True, thresh=0):
+    def greedy_action(action_value_dict, find_one=True, thresh=0):
+        """Just return the greedy action(s)."""
         if find_one:  # find one maximizer
             return max(action_value_dict, key=action_value_dict.get)
         else:
@@ -45,7 +45,7 @@ class Agent:
 
     @staticmethod
     def epsilon_greedy(action_value_dict, epsilon=.1):
-        """return action and its current value"""
+        """return a tuple of action and its current value"""
         if random.random() < epsilon:
             return random.choice(list(action_value_dict.items()))
         else:
@@ -54,15 +54,31 @@ class Agent:
     @staticmethod
     def q2pi(q):
         """If state action value Q(S, A) is given, induce the corresponding greedy policy."""
-        return {state: Agent.greedy_pick(action_value_dict)
+        return {state: Agent.greedy_action(action_value_dict)
                 for state, action_value_dict in q.items()}
 
     @staticmethod
     def compare_dict(d1, d2):
-        """Find keys in d1 such that the corresponding values differ in d1 and d2"""
+        """The keys in d1 form a subset of those in d2.
+        Find keys in d1 such that the corresponding values differ in d1 and d2"""
         return [k for k in d1 if d1[k] != d2[k]]
 
+    @staticmethod
+    def action_prune(q_dict, thresh):
+        n0 = 0
+        x = 0
+        for state, action_value_dict in q_dict.items():
+            n0 += len(action_value_dict)
+            best = max(action_value_dict.values())
+            q_dict[state] = {a: v for a, v in action_value_dict.items()
+                             if best - v < thresh}
+            x += len(q_dict[state])
+        print(f"{n0} state-action pairs before pruning")
+        print(f"{n0 - x} state-action pairs pruned")
+        return q_dict
+
     def policy_run(self, policy, state0=None):
+        """Run the game according to a given policy"""
         state = self.game.reset(state0)
         state_ls = []
         reward_ls = []
@@ -75,8 +91,8 @@ class Agent:
         return state_ls, reward_ls
 
     def get_q_pi_sa(self, policy, state, action, n_episodes=10 ** 5):
-        """Given a policy pi, evaluate Q_pi(state, action). Note that action not
-        necessarily equals pi[state]
+        """Given a policy pi, evaluate Q_pi(state, action). Note that action is not
+        necessarily policy[state]
         """
         game = self.game
         result = utils.Averager()
@@ -96,7 +112,7 @@ class Agent:
                     tmp_a = policy[tmp_s]
         return result.average
 
-    def policy_eval(self, policy, state_action_oi=None, n_episodes=10**5):
+    def policy_eval(self, policy, state_action_oi=None, n_episodes=10 ** 5):
         """Using Monte-Carlo to evaluate Q_pi(S, A) for (S, A) of interest.
         :param policy (dict) -- only consider deterministic policy, action = policy[state]
         :param state_action_oi (dict) -- (state, action) pair of interest,
@@ -104,90 +120,48 @@ class Agent:
         """
         if state_action_oi is None:
             state_action_oi = {state: self.game.available_actions(state) for state in policy}
-        q = {}
+        q_dct = {}
         for state, actions in state_action_oi.items():
             action_value_dict = {}
             for action in actions:
                 v = self.get_q_pi_sa(policy, state, action, n_episodes)
                 action_value_dict[action] = v
                 # print(F"{state}, {action} --> {v}")
-            q[state] = action_value_dict
-        return q
+            q_dct[state] = action_value_dict
+        return q_dct
 
     def fine_tune(self, q_star, max_iter=10):
-        sa_oi = {}
+        """Given state-action value dictionary q_star(whose actions are usually already pruned to make this routine
+        computationally feasible), evaluate q_pi(S, A) for each state under which best actions are to be determined,
+        and pick the best action(s).
+        """
+        sa_oi = {}  # state-action pair of interest
         pi_star = Agent.q2pi(q_star)
         for state, action_value_dict in q_star.items():
             if len(action_value_dict) > 1:
                 sa_oi[state] = list(action_value_dict)
         for i in range(max_iter):
             print(f"The {i + 1}th trial.")
-            q_hat = self.policy_eval(pi_star, sa_oi, n_episodes)
             q_hat = {}
             for state, actions in sa_oi.items():
-
-                q_star[state]
-                n_episodes = 10 ** 5
-                for action in actions:
-                    v = self.get_q_pi_sa(pi_star, state, action, n_episodes)
-                    q_hat[state]
-
+                # for each state, compute the difference between difference action values.
+                v_ls = q_star[state].values()
+                d = max(v_ls) - min(v_ls)
+                # 3/sqrt(n_episodes) = d
+                n_episodes = max(5*10**4, int((3 / d) ** 2))  # at least 5W
+                q_hat[state] = {action: self.get_q_pi_sa(pi_star, state, action, n_episodes) for action in actions}
             pi_hat = self.q2pi(q_hat)
             problem_states = self.compare_dict(pi_hat, pi_star)
             if problem_states:
-                self.n_trials *= 2
                 print(f"problem states are {problem_states}")
-                sa_oi = {state: list(q_hat[state]) for state in problem_states}
+                sa_oi = {state: actions for state, actions in sa_oi.items() if state in problem_states}
                 pi_star.update(pi_hat)
+                q_star.update(q_hat)
             else:
                 print("Done!!!!")
                 return pi_star
         else:
             print(f"Exceeds maximum iteration = {max_iter}")
-
-    def crude_run(self):
-        q_star = self.q_learning(n_episodes=10 ** 7, alpha=10 ** -3)
-        for prune_thresh in [.2, .1, .06]:
-            q_star = action_prune(q_star, prune_thresh)
-            # check the pruning is correct
-            q_star = self.q_learning(q0=q_star, n_episodes=10 ** 7, alpha=10 ** -4)
-            # show_q(q_star)
-        with open(os.path.join(self.data_dir, 'q_star.pkl'), 'wb') as file:
-            pickle.dump(q_star, file)
-        df = pd.DataFrame(q_star).T
-        df = df.reindex(columns=['hit', 'stand'])
-        df.sort_index(inplace=True)
-        df.to_csv('~/Desktop/q_star.csv')
-        return q_star
-
-    def aug_q(self, alpha=10 ** -3, eps=0.1):
-        q = {}
-        successor = {}  # next state
-        im_r = {}  # immediate reward
-        predecessor = {}  # previous state
-        # optimistic start
-        game = self.game
-        state0 = game.reset()
-        is_terminal = False
-        while not is_terminal:
-            avail_actions = game.available_actions()
-            if state0 not in q:  # a new state is encountered
-                q[state0] = {action: 1 for action in avail_actions}
-                successor[state0] = {action: Counter() for action in avail_actions}
-                im_r[state0] = {action: Counter() for action in avail_actions}
-            if random.random() <= eps:
-                action0 = random.choice(avail_actions)
-            else:
-                action0 = max(q[state0], key=q[state0].get)
-            state1, reward, is_terminal = game.one_move(action0)
-            successor[state0][action0][state1] += 1
-            im_r[state0][action0][reward] += 1
-            if state1 not in predecessor:
-                predecessor[state1] = Counter()
-            predecessor[state1][state0] += 1
-            q[state0][action0] += alpha * (
-                    reward + game.gamma * max(q[state1].values()) - q[state0][action0])
-
 
 def show_q(q):
     # df = pd.DataFrame(q).T
@@ -201,28 +175,9 @@ def show_q(q):
                 print(f"({state}, {action}) = {q[state][action]:.6f}")
 
 
-def action_prune(q_dict, thresh):
-    n0 = 0
-    x = 0
-    for state, action_value_dict in q_dict.items():
-        n0 += len(action_value_dict)
-        best = max(action_value_dict.values())
-        q_dict[state] = {a: v for a, v in action_value_dict.items()
-                         if best - v < thresh}
-        x += len(q_dict[state])
-    print(f"{n0} state-action pairs before pruning")
-    print(f"{n0 - x} state-action pairs pruned")
-    return q_dict
-
-
 if __name__ == '__main__':
     import os
 
     project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     data_dir = os.path.join(project_dir, 'data')
-    from game.blackjack import BlackJack
-    import pickle
 
-    player = Agent(BlackJack())
-    # q_star = player.crude_run()
-    pi_star = player.fine_tune()

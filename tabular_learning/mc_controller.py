@@ -17,7 +17,7 @@ class MC(Agent):
                        for state in self.game.state_space}
 
     @staticmethod
-    def greedy_pick(action_value_dict, find_one=True, thresh=0):
+    def greedy_action(action_value_dict, find_one=True, thresh=0):
         if find_one:  # find one maximizer
             return max(action_value_dict, key=action_value_dict.get)
         else:
@@ -40,9 +40,9 @@ class MC(Agent):
             action_chosen = choice(game.available_actions(state))
             explored = True
         else:
-            action_chosen = choice(self.greedy_pick(q_fun[state], find_one=False))
+            action_chosen = choice(self.greedy_action(q_fun[state], find_one=False))
         if off_policy:
-            best_action = choice(self.greedy_pick(q_fun[state], find_one=False)) if explored else action_chosen
+            best_action = choice(self.greedy_action(q_fun[state], find_one=False)) if explored else action_chosen
             for action in self.game.available_actions(state):
                 if action == best_action:
                     self.prob_b[state][action] = 1 - self.epsilon + self.epsilon / len(game.available_actions(state))
@@ -115,7 +115,7 @@ class MC(Agent):
                 g = game.gamma * g + r
                 c_fun[s][a] += w
                 q_fun[s][a] += w / c_fun[s][a] * (g - q_fun[s][a])
-                best_action = choice(self.greedy_pick(q_fun[s], find_one=False))
+                best_action = choice(self.greedy_action(q_fun[s], find_one=False))
                 if best_action != a:
                     break
                 w *= 1 / self.prob_b[s][a]

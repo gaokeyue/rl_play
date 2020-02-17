@@ -15,7 +15,7 @@ class QLearner(Agent):
         if np.random.random() < self.epsilon:
             chosen_action = np.random.choice(self.game.available_actions(state))
         else:
-            chosen_action = np.random.choice(self.greedy_pick(q[state], find_one=False))
+            chosen_action = np.random.choice(self.greedy_action(q[state], find_one=False))
         return chosen_action
 
     def crude_run(self, episodes=5 * 10 ** 5, q0=None, soi=None):
