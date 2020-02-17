@@ -1,32 +1,22 @@
 from game import Game
 from collections import defaultdict
 import random
-import utils
 
 
 class BlackJack(Game):
 
     def __init__(self):
-        self._action = 'act'
+        self._actions = ['hit', 'stand']
         self._state = ('shown_card', 'hands_sum', 'usable_or_not')
-        self._cards = ['K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2', 'A']
-        self._cards_count = {
+        self.cards = ['K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2', 'A']
+        self.cards_count = {
             'K': 10, 'Q': 10, 'J': 10, 'T': 10, '9': 9, '8': 8,
             '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, 'A': 11
         }
-        self.actions = ['hit', 'stand']
-        self.state_space = [(shown_card, hands_sum, usable_ace)
-                            for shown_card in self._cards  # @Xi: add [3:] for debug
-                            for hands_sum in range(12, 23)
-                            for usable_ace in (True, False)]
 
     @property
     def state(self):
         return self._state
-
-    @property
-    def action(self):
-        return self._action
 
     def reset(self, *states):
         """
@@ -36,96 +26,97 @@ class BlackJack(Game):
         if len(states) > 0:
             shown_card, hands_sum, usable_ace = random.choice(states)
         else:
-            shown_card = random.choice(self._cards)
-            hands_sum = random.randint(12, 21)
+            shown_card = random.choice(self.cards)
+            hands_sum = random.randint(11, 21)
             usable_ace = random.choice([True, False])
-        # if shown_card in ['K', 'Q', 'J']:  # @Xi: these 2 lines added for debug
-        #     shown_card = 'T'
+            # usable_ace = False
         state = shown_card, hands_sum, usable_ace
         self._state = state
         return state
 
+    def hit(self, hands_sum, hit_card, usable_ace):
+        hands_sum = hands_sum + self.cards_count[hit_card]
+        if (hit_card != 'A') and not usable_ace:
+            pass
+        elif usable_ace and (hit_card == 'A'):
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = True
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = False
+        else:
+            usable_ace = True
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = False
+        return hands_sum, usable_ace
+
     def dealer(self, seed=None):
         random.seed = seed
         usable_ace = False
-        card_two = random.choice(self._cards)
+        card_two = random.choice(self.cards)
         shown_card = self._state[0]
-        count = self._cards_count[shown_card] + self._cards_count[card_two]
+        count = self.cards_count[shown_card] + self.cards_count[card_two]
         if card_two == 'A' or shown_card == 'A':
             usable_ace = True
         if count == 22:
             count = 12
         while count < 17:
-            hit_card = random.choice(self._cards)
-            count += self._cards_count[hit_card]
+            hit_card = random.choice(self.cards)
+            count, usable_ace = self.hit(count, hit_card, usable_ace)
             if count > 21:
-                if not usable_ace:
-                    return 0
-                else:
-                    usable_ace = False
-                    count = count - 10
-            if hit_card is 'A':
-                usable_ace = True
+                return 0
         return count
 
     def one_move(self, action):
         is_terminal = False
         if action == 'hit':
-            new_card = random.choice(self._cards)
+            new_card = random.choice(self.cards)
             # print(new_card)
-            shown_card, hands_sum, usable_ace = self.state
-            hands_sum += self._cards_count[new_card]
+            shown_card, hands_sum, usable_ace = self._state
+            hands_sum, usable_ace = self.hit(hands_sum, new_card, usable_ace)
             new_state = (shown_card, hands_sum, usable_ace)
+            # self._state = new_state
             if hands_sum > 21:
-                if (not usable_ace) & (new_card is not 'A'):
-                    reward = -1
-                    is_terminal = True
-                    new_state = (shown_card, 22, usable_ace)
-                else:
-                    if hands_sum == 32:
-                        reward = -1
-                        is_terminal = True
-                        new_state = (shown_card, 22, usable_ace)
-                    else:
-                        hands_sum -= 10
-                        if (new_card is 'A') & usable_ace:
-                            usable_ace = True
-                        else:
-                            usable_ace = False
-                        new_state = (shown_card, hands_sum, usable_ace)
-                        reward = 0
+                reward = -1
+                is_terminal = True
+                new_state = (shown_card, "busted", usable_ace)
             else:
                 reward = 0
         else:
             is_terminal = True
             dealer_pts = self.dealer()
-            if self.state[1] < dealer_pts:
+            if self._state[1] < dealer_pts:
                 reward = -1
-            elif self.state[1] == dealer_pts:
+            elif self._state[1] == dealer_pts:
                 reward = 0
             else:
                 reward = 1
-            new_state = (self.state[0], self.state[1], self.state[2])
+            new_state = (self._state[0], 'stand', self._state[2])
         self._state = new_state
         return new_state, reward, is_terminal
 
     def available_actions(self, state=None):
-        return self.actions
+        return self._actions
 
     def q_initializer(self):
-        q = {state: {action: utils.Averager() for action in self.actions}
-             for state in self.state_space}
+        q = defaultdict(dict)
+        for shown_card in self.cards:
+            for hands_sum in (list(range(12, 22)) + ['busted', 'stand']):
+                state = (shown_card, hands_sum, True)
+                q[state]['hit'] = 0
+                q[state]['stand'] = 0
+                state = (shown_card, hands_sum, False)
+                q[state]['hit'] = 0
+                q[state]['stand'] = 0
         return q
-
-    def policy_initializer(self):
-        return {state: 'stand' if state[1] >= 20 else 'hit' for state in self.state_space}
 
 
 if __name__ == '__main__':
     blackjack = BlackJack()
     blackjack.reset()
-    # print(blackjack._state)
+    print(blackjack._state)
     print(blackjack.available_actions())
     print(blackjack.one_move('hit'))
     print(blackjack.q_initializer())
-    policy0 = blackjack.policy_initializer()

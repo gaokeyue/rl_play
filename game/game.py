@@ -12,12 +12,6 @@ class Game(abc.ABC):
         """The current state is kept in game.state, however this is a read only property.
         setting state, game.state = state is forbidden """
 
-    @property
-    @abc.abstractmethod
-    def action(self):
-        """The current action is kept in game.action, however this is a read only property.
-        setting action, game.action = action is forbidden """
-
     @abc.abstractmethod
     def reset(self, *states, **kwargs):
         """If states is empty, then reset to the most generic initial state of the given name.
@@ -35,11 +29,6 @@ class Game(abc.ABC):
         """If state is None, then return the set of available actions from the current self.space.
         It's possible that action is independent of state.
         """
-
-    def policy_initializer(self):
-        """
-        """
-        return None
 
     def is_terminal(self, state=None):
         actions = self.available_actions(state)

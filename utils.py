@@ -1,9 +1,10 @@
-import random
 import numpy as np
 import time
 from functools import wraps
-import numbers
 
+def convex_comb(x, y, eta):
+    """convex combination between x and y, eta in [0, 1]"""
+    return x + eta * (y - x)
 
 def expectation(prob_dict, f=None):
     if f is None:  # just the expectation of the probability distribution
@@ -38,15 +39,18 @@ class Averager:
 
     def __init__(self):
         self.n = 0
-        self.average = 0
+        self.total = 0
 
     def __call__(self, x):
         self.add_new(x)
 
     def add_new(self, x):
+        self.total += x
         self.n += 1
-        eta = 1 / self.n
-        self.average = (1 - eta) * self.average + eta * x
+
+    @property
+    def average(self):
+        return self.total / self.n
 
     def __repr__(self):
         return repr(self.average)

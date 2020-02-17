@@ -133,3 +133,4 @@ dmypy.json
 *.npy
 *.json
 *scratch.py
+data/
