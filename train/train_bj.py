@@ -1,21 +1,24 @@
 import pandas as pd
 from tabular_learning import Agent
-from game.blackjack import BlackJack
+from game import BlackJack
 
-def make_pi_star():
-    """Only have no usable A cases"""
-    state_space = [(rank, i, False) for rank in "23456789KA" for i in range(11, 22)]
+def target_policy():
+    state_space = [(dealer, hand_sum, usable) for dealer in "23456789TJQKA"
+                   for hand_sum in range(11, 22) for usable in [True, False]]
     pi = {}
     for state in state_space:
-        rank, i, _ = state
-        if rank in "23":
-            pi[state] = 'stand' if i >= 13 else 'hit'
-        elif rank in '456':
-            pi[state] = 'stand' if i >= 12 else 'hit'
-        elif rank in '789KA':
-            pi[state] = 'stand' if i >= 17 else 'hit'
-        else:
-            raise Exception
+        dealer, hand_sum, usable = state
+        if usable:
+            if dealer in "2345678":
+                pi[state] = 'stand' if hand_sum >= 18 else 'hit'
+            elif dealer in "9TJQKA":
+                pi[state] = 'stand' if hand_sum >= 19 else 'hit'
+        if dealer in "23":
+            pi[state] = 'stand' if hand_sum >= 13 else 'hit'
+        elif dealer in '456':
+            pi[state] = 'stand' if hand_sum >= 12 else 'hit'
+        elif dealer in '789KA':
+            pi[state] = 'stand' if hand_sum >= 17 else 'hit'
     return pi
 
 def get_q_star(soi=None, n=10**5):
@@ -23,7 +26,7 @@ def get_q_star(soi=None, n=10**5):
     :param soi -- states of interest, e.g. [("K", 16, False), ("K", 17, False)...]
     if None, include all states in pi_star"""
     player = Agent(BlackJack(), n)
-    pi_star = make_pi_star()
+    pi_star = target_policy()
     if soi is not None:
         soi = {state: ['hit', 'stand'] for state in soi}
     q_star = player.policy_eval(pi_star, soi)

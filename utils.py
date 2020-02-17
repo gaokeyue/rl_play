@@ -4,6 +4,9 @@ import time
 from functools import wraps
 import numbers
 
+def convex_comb(x, y, eta):
+    """convex combination between x and y, eta in [0, 1]"""
+    return x + eta * (y - x)
 
 def expectation(prob_dict, f=None):
     if f is None:  # just the expectation of the probability distribution
