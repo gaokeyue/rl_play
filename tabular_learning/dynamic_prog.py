@@ -63,9 +63,9 @@ class DPRL:
                 best_actions.append(action)
         return best_score, best_actions, action_value_dict
 
-    def value_iter(self, v0):
+    def value_iter(self, v0, max_iter=10**3):
         """"""
-        @deco_while(max_iter=self.max_iter, print_iter=10, thresh=self.eps)
+        @deco_while(max_iter=max_iter, print_iter=10, thresh=self.eps)
         def value_iteration_step(v0):
             # print(v0)
             v1 = np.zeros(self.num_states)
@@ -126,9 +126,8 @@ class DPRL:
                 state_tran_pi[state, s_p] = p
         return reward_pi, state_tran_pi
 
-    def policy_eval(self, pi, v0):
+    def policy_eval(self, pi, v0, max_iter=1000):
         reward_pi, state_tran_pi = self.get_trans_prob_pi(pi)
-        max_iter = 1000
         n_iter = 0
         while n_iter < max_iter:
             n_iter += 1

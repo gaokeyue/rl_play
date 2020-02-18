@@ -177,7 +177,7 @@ def show_q(q):
 
 if __name__ == '__main__':
     import os
-
+    from game.gambler import Gambler
     project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     data_dir = os.path.join(project_dir, 'data')
 

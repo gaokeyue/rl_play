@@ -3,14 +3,10 @@ import random
 
 
 class Gambler(Game):
-    def __init__(self, p_h=.4, goal=100, state0=None):
+    def __init__(self, p_h=.4, goal=100):
         self.p_h = p_h
         self.goal = goal
         self.state_space = range(self.goal + 1)
-        if state0 is None:
-            self.reset()
-        else:
-            self.reset(state0)
 
     @property
     def state(self):
@@ -40,9 +36,6 @@ class Gambler(Game):
         if state is None:
             state = self._state
         return range(1, min(state, self.goal - state) + 1)
-
-    def copy(self):
-        return Gambler(self.p_h, self.goal, self.state)
 
 
 if __name__ == '__main__':
