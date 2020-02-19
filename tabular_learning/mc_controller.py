@@ -4,6 +4,7 @@ from utils import Averager, compare, convex_comb
 from tqdm import tqdm
 #
 from game.blackjack import BlackJack
+from game.gambler import Gambler
 import pandas as pd
 import os
 
@@ -191,7 +192,7 @@ class MC(Agent):
         """
         game = self.game
         if q0 is None:
-            q_dict = self.q_initializer(default_value=1)
+            q_dict = self.q_initializer(default_value=0)
             s_oi = None
         else:
             q_dict = q0
@@ -227,16 +228,26 @@ if __name__ == '__main__':
 
     project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     data_dir = os.path.join(project_dir, 'data')
-    game = BlackJack()
-    """test0"""
-    n_episodes = 1 * 10 ** 7
-    agent1 = MC(game)
-    # q1 = agent1.on_policy_mc_exploring_start(n_episodes=n_episodes, policy0=game.policy_initializer(), q0=None)
+    """test0 - BlackJack"""
+    # game0 = BlackJack()
+    # agent0 = MC(game0)
+    # n_episodes = 1 * 10 ** 7
+    # # q1 = agent0.on_policy_mc_exploring_start(n_episodes=n_episodes, policy0=game0.policy_initializer(), q0=None)
+    # # q1 = agent0.on_policy_mc_epsilon_soft(n_episodes=n_episodes, q0=None)
+    # q1 = agent0.off_policy_mc(n_episodes=n_episodes, q0=None)
+    # q_df = pd.DataFrame.from_dict(q1, orient='index')
+    # q_df.sort_index(level=[0, 1, 2], inplace=True)
+    # q_df.to_csv(data_dir + '/q3.csv')
+    """test1 - Gambler"""
+    game1 = Gambler(goal=15)
+    agent1 = MC(game1, epsilon=0.1)
+    n_episodes = 5 * 10 ** 6
+    # q1 = agent1.on_policy_mc_exploring_start(n_episodes=n_episodes, policy0=None, q0=None)
     # q1 = agent1.on_policy_mc_epsilon_soft(n_episodes=n_episodes, q0=None)
     q1 = agent1.off_policy_mc(n_episodes=n_episodes, q0=None)
     q_df = pd.DataFrame.from_dict(q1, orient='index')
-    q_df.sort_index(level=[0, 1, 2], inplace=True)
-    q_df.to_csv(data_dir + '/q3.csv')
+    q_df.sort_index(level=0, inplace=True)
+    q_df.to_csv(data_dir + '/qq3_-1.csv')
     #
     # print('haha')
     #

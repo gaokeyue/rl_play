@@ -46,6 +46,7 @@ class Gambler(Game):
 
 
 if __name__ == '__main__':
-    gambler = Gambler(goal=10)
-    # q = gambler.q_initializer()
-    # print(gambler.state())
+    gambler = Gambler(goal=15)
+    state0 = gambler.state
+    action0 = random.choice(gambler.available_actions(state0))
+    state1, reward1, is_terminal1 = gambler.one_move(action0)
