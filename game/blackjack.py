@@ -26,10 +26,11 @@ class BlackJack(Game):
         if len(states) > 0:
             shown_card, hands_sum, usable_ace = random.choice(states)
         else:
-            shown_card = random.choice(self.cards)
-            hands_sum = random.randint(11, 21)
-            usable_ace = random.choice([True, False])
-            # usable_ace = False
+            # shown_card = random.choice(self.cards)
+            shown_card = 'K'
+            hands_sum = random.randint(12, 21)
+            # usable_ace = random.choice([True, False])
+            usable_ace = False
         state = shown_card, hands_sum, usable_ace
         self._state = state
         return state
