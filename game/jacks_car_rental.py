@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
+from tqdm import tqdm
 
 from game import Game
 
@@ -26,12 +27,12 @@ class JacksCarRental(Game):
         
     @property
     def state(self):
-        return self._state
+        return tuple(self._state)
 
     def reset(self):
         self._state = np.array([random.randint(0, self.parking_cap),
                                 random.randint(0, self.parking_cap)])
-        return self._state
+        return tuple(self._state)
 
     def one_move(self, action):
         self._state[0] -= action
@@ -106,7 +107,7 @@ class Sarsa:
 
         action = self.choose_action()
 
-        for i in range(times):
+        for i in tqdm(range(times)):
             prev_state = np.copy(self.env.state)
 
             _, reward, _ = self.env.one_move(action - self.env.max_move)
@@ -166,7 +167,7 @@ class Qlearning(Sarsa):
 
         reward = 0
 
-        for i in range(times):
+        for i in tqdm(range(times)):
             prev_state = np.copy(self.env.state)
 
             action = self.choose_action()
