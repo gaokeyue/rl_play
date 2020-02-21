@@ -31,6 +31,7 @@ class JacksCarRental(Game):
     def reset(self):
         self._state = np.array([random.randint(0, self.parking_cap),
                                 random.randint(0, self.parking_cap)])
+        return self._state
 
     def one_move(self, action):
         self._state[0] -= action
