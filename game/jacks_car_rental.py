@@ -22,16 +22,14 @@ class JacksCarRental(Game):
         self.lambda_return_loc1 = 3
         self.lambda_rent_loc2 = 4
         self.lambda_return_loc2 = 2
-        self._state = np.array([random.randint(0, self.parking_cap),
-                                random.randint(0, self.parking_cap)])
+        self._state = [random.randint(0, self.parking_cap), random.randint(0, self.parking_cap)]
         
     @property
     def state(self):
         return tuple(self._state)
 
     def reset(self):
-        self._state = np.array([random.randint(0, self.parking_cap),
-                                random.randint(0, self.parking_cap)])
+        self._state = [random.randint(0, self.parking_cap), random.randint(0, self.parking_cap)]
         return tuple(self._state)
 
     def one_move(self, action):
