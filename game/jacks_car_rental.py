@@ -90,7 +90,7 @@ class Sarsa:
 
             # If multiple actions have the same max value, we need to choose one of them randomly
             possible_actions = []
-            for i in possible_actions(action_range + 1):
+            for i in range(action_range + 1):
                 if self.Q[self.env.state[0], self.env.state[1], i + range_lower_bound]\
                         == self.Q[self.env.state[0], self.env.state[1], action]:
                     possible_actions.append(i + range_lower_bound)
