@@ -77,8 +77,9 @@ class Sarsa:
         self.Q = np.zeros((self.n, self.n, self.n))
 
     def choose_action(self):
-        range_lower_bound = min(self.env.available_actions(self.env.state))
-        range_upper_bound = max(self.env.available_actions(self.env.state))
+        available_actions = self.env.available_actions(self.env.state)
+        range_lower_bound = min(available_actions)
+        range_upper_bound = max(available_actions)
         action_range = range_upper_bound - range_lower_bound
 
         if random.random() <= EPSILON:
@@ -88,13 +89,13 @@ class Sarsa:
                                range_lower_bound: range_upper_bound + 1]) + range_lower_bound
 
             # If multiple actions have the same max value, we need to choose one of them randomly
-            available_actions = []
-            for i in range(action_range + 1):
+            possible_actions = []
+            for i in possible_actions(action_range + 1):
                 if self.Q[self.env.state[0], self.env.state[1], i + range_lower_bound]\
                         == self.Q[self.env.state[0], self.env.state[1], action]:
-                    available_actions.append(i + range_lower_bound)
+                    possible_actions.append(i + range_lower_bound)
 
-            action = random.choice(available_actions)
+            action = random.choice(possible_actions)
 
         return action
 
