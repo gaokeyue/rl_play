@@ -5,6 +5,7 @@ from tqdm import tqdm
 #
 from game.blackjack import BlackJack
 from game.gambler import Gambler
+from game.jacks_car_rental import JacksCarRental
 import pandas as pd
 import os
 
@@ -19,7 +20,7 @@ class MC(Agent):
         self.game = game
         self.epsilon = epsilon
         self.prob_b = {state: {action: 0 for action in game.available_actions(state)}
-                       for state in self.game.state_space}
+                       for state in game.state_space}
 
     @staticmethod
     def greedy_action(action_value_dict, find_one=True, thresh=0):
@@ -91,7 +92,7 @@ class MC(Agent):
         :return: the episode including states, actions and rewards (list, list, list)
         """
         game = self.game
-        state = game.reset(state0)
+        state = game.reset(state0) if state0 else game.reset()
         state_ls = []
         action_ls = []
         reward_ls = []
@@ -239,15 +240,18 @@ if __name__ == '__main__':
     # q_df.sort_index(level=[0, 1, 2], inplace=True)
     # q_df.to_csv(data_dir + '/q3.csv')
     """test1 - Gambler"""
-    game1 = Gambler(goal=15)
-    agent1 = MC(game1, epsilon=0.1)
-    n_episodes = 5 * 10 ** 6
-    # q1 = agent1.on_policy_mc_exploring_start(n_episodes=n_episodes, policy0=None, q0=None)
-    # q1 = agent1.on_policy_mc_epsilon_soft(n_episodes=n_episodes, q0=None)
-    q1 = agent1.off_policy_mc(n_episodes=n_episodes, q0=None)
-    q_df = pd.DataFrame.from_dict(q1, orient='index')
-    q_df.sort_index(level=0, inplace=True)
-    q_df.to_csv(data_dir + '/qq3_-1.csv')
+    # game1 = Gambler(goal=15)
+    # agent1 = MC(game1, epsilon=0.1)
+    # n_episodes = 5 * 10 ** 6
+    # # q1 = agent1.on_policy_mc_exploring_start(n_episodes=n_episodes, policy0=None, q0=None)
+    # # q1 = agent1.on_policy_mc_epsilon_soft(n_episodes=n_episodes, q0=None)
+    # q1 = agent1.off_policy_mc(n_episodes=n_episodes, q0=None)
+    # q_df = pd.DataFrame.from_dict(q1, orient='index')
+    # q_df.sort_index(level=0, inplace=True)
+    # q_df.to_csv(data_dir + '/qq3_-1.csv')
+    """test2 - JacksCarRental"""
+    game2 = JacksCarRental()
+    agent2 = MC(game2)
     #
     # print('haha')
     #
