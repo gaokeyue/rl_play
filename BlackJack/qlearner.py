@@ -140,6 +140,7 @@ class TDRL:
                 g = self.gamma * g + reward
                 q_value[state][action](g)
 
+
 if __name__ == '__main__':
     dealer = 10
     black_jack = BlackJack(dealer_start=dealer, player_start=range(16, 21))
