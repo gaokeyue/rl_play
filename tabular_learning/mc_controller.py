@@ -9,6 +9,7 @@ from game.jacks_car_rental import JacksCarRental
 import pandas as pd
 import numpy as np
 import os
+import pickle
 
 
 class MC(Agent):
@@ -24,27 +25,27 @@ class MC(Agent):
                        for state in game.state_space}
 
     @staticmethod
-    def greedy_action(action_value_dict, find_one=True, thresh=0):
+    def greedy_selection(value_dict, find_one=True, thresh=0):
         """
-        :param action_value_dict: the action value function with the state fixed (dict)
+        :param value_dict: an action value function with the state fixed (dict) or a state value function (dict)
         :param find_one: a switch (bool, True/False to return one/all of the best actions)
         :param thresh: a threshold value used in float comparison (float)
         :return:
         """
         if find_one:  # find one maximizer
-            return max(action_value_dict, key=action_value_dict.get)
+            return max(value_dict, key=value_dict.get)
         else:
             best_score = -float('inf')
-            best_actions = []
-            for action, value in action_value_dict.items():
+            best_results = []
+            for key, value in value_dict.items():
                 score = value.average if isinstance(value, Averager) else value
                 flag = compare(score, best_score, thresh)
                 if flag is 1:  # a strictly better action is found
                     best_score = score
-                    best_actions = [action]
+                    best_results = [key]
                 elif flag is 0:  # an action which ties the best action is found
-                    best_actions.append(action)
-            return best_actions
+                    best_results.append(key)
+            return best_results
 
     def q_initializer(self, use_averager=False, default_value=0):
         """
@@ -61,7 +62,20 @@ class MC(Agent):
                  for state in game.state_space}
         return q
 
-    def choose_action(self, state, q_dict, off_policy=False):
+    def v_initializer(self, use_averager=False, default_value=0):
+        """
+        :param use_averager: a switch (bool, False to use int/float, True to use a Averager class)
+        :param default_value: the initial state-action value (int or float)
+        :return: an initial state value function (dict of dict)
+        """
+        game = self.game
+        if use_averager:
+            v = {state: Averager(default_value) for state in game.state_space}
+        else:
+            v = {state: default_value for state in game.state_space}
+        return v
+
+    def choose_action_on_q(self, state, q_dict, off_policy=False):
         """
         :param state: a state
         :param q_dict: action value function (dict of dict)
@@ -74,9 +88,9 @@ class MC(Agent):
             action_chosen = choice(game.available_actions(state))
             explored = True
         else:
-            action_chosen = choice(self.greedy_action(q_dict[state], find_one=False))
+            action_chosen = choice(self.greedy_selection(q_dict[state], find_one=False))
         if off_policy:
-            best_action = choice(self.greedy_action(q_dict[state], find_one=False)) if explored else action_chosen
+            best_action = choice(self.greedy_selection(q_dict[state], find_one=False)) if explored else action_chosen
             for action in game.available_actions(state):
                 if action == best_action:
                     self.prob_b[state][action] = 1 - self.epsilon + self.epsilon / len(game.available_actions(state))
@@ -84,19 +98,34 @@ class MC(Agent):
                     self.prob_b[state][action] = self.epsilon / len(game.available_actions(state))
         return action_chosen
 
-    def episode_generator(self, q_dict, state0=None, policy=None, off_policy=False, length=None):
+    def choose_action_on_v(self, state, v_dict):
         """
-        :param q_dict: an action value function (dict of dict)
-        :param state0: the state used to generate the episode
-        :param policy: the policy used to determine the action from a certain state (dict)
+        :param state: a state
+        :param v_dict: state value function (dict)
+        :return: an action chosen by epsilon_greedy method
+        """
+        game = self.game
+        if random() < self.epsilon:
+            action_chosen = choice(game.available_actions(state))
+        else:
+            after_states = tuple(game.half_move(action, state) for action in game.available_actions(state))
+            v_dict_selected = {after_state: v_dict[after_state] for after_state in after_states}
+            after_state = choice(self.greedy_selection(v_dict_selected, find_one=False))
+            action_chosen = game.half_move_reverse(after_state, state)
+        return action_chosen
+
+    def episode_generator(self, value_dict, value_type='q', state0=None, policy=None, off_policy=False, length=None):
+        """
+        :param value_dict: a state-action value function (dict of dict) or a state value function (dict)
+        :param state0: a state used to generate the episode
+        :param policy: a policy used to determine the action from a certain state (dict)
         :param off_policy: a switch (bool, False for off_policy, True for on_policy)
-        :return: the episode including states, actions and rewards (list, list, list)
+        :param value_type: 'q' for state-action value function, 'v' for state value function
+        :return: an episode including states, actions and rewards (list, list, list)
         """
         game = self.game
         state = game.reset(state0) if state0 else game.reset()
-        state_ls = []
-        action_ls = []
-        reward_ls = []
+        state_ls, action_ls, reward_ls = [], [], []
         is_terminal = False
         i = 0
         while not is_terminal:
@@ -105,7 +134,13 @@ class MC(Agent):
                 if i == length:
                     break
             state_ls.append(state)
-            action = policy[state] if policy else self.choose_action(state, q_dict, off_policy)
+            if value_type == 'q':
+                action = policy[state] if policy else self.choose_action_on_q(state, value_dict, off_policy)
+            elif value_type == 'v':
+                action = policy[state] if policy else self.choose_action_on_v(state, value_dict)
+            else:
+                print('Something wrong with value_type!')
+                exit()
             action_ls.append(action)
             state, reward, is_terminal = game.one_move(action)
             reward_ls.append(reward)
@@ -114,8 +149,8 @@ class MC(Agent):
     def on_policy_mc_exploring_start(self, n_episodes=5*10**5, policy0=None, q0=None, epi_length=None):
         """
         :param n_episodes: the number of episodes (int)
-        :param policy0: the policy used in the first episode (None or dict)
-        :param q0: the initial state-action value function (dict of dict)
+        :param policy0: a policy used in the first episode (None or dict)
+        :param q0: an initial state-action value function (None or dict of dict)
         :return: a state-action value function (dict of dict)
         """
         self.epsilon = 0
@@ -143,7 +178,8 @@ class MC(Agent):
             state_ls, action_ls, reward_ls = [state0], [action0], [reward0]
             if not is_terminal:
                 policy = None if episode else policy0
-                state_ls_2, action_ls_2, reward_ls_2 = self.episode_generator(q_dict, state1, policy, length=epi_length)
+                state_ls_2, action_ls_2, reward_ls_2 = self.episode_generator(q_dict, state0=state1,
+                                                                              policy=policy, length=epi_length)
                 state_ls.extend(state_ls_2)
                 action_ls.extend(action_ls_2)
                 reward_ls.extend(reward_ls_2)
@@ -159,7 +195,7 @@ class MC(Agent):
     def on_policy_mc_epsilon_soft(self, n_episodes=5*10**5, q0=None):
         """
         :param n_episodes: the number of episodes (int)
-        :param q0: the initial state-action value function (dict of dict)
+        :param q0: an initial state-action value function (dict of dict)
         :return: a state-action value function (dict of dict)
         """
         game = self.game
@@ -181,7 +217,7 @@ class MC(Agent):
             else:
                 state0 = choice(s_oi)
                 game.reset(state0)
-            state_ls, action_ls, reward_ls = self.episode_generator(q_dict, state0)
+            state_ls, action_ls, reward_ls = self.episode_generator(q_dict, state0=state0)
             g = 0
             for s, a, r in zip(reversed(state_ls), reversed(action_ls), reversed(reward_ls)):
                 g = game.gamma * g + r
@@ -194,7 +230,7 @@ class MC(Agent):
     def off_policy_mc(self, n_episodes=5*10*5, q0=None):
         """
         :param n_episodes: the number of episodes (int)
-        :param q0: the initial state-action value function (dict of dict)
+        :param q0: an initial state-action value function (dict of dict)
         :return: a state-action value function (dict of dict)
         """
         game = self.game
@@ -215,7 +251,7 @@ class MC(Agent):
             else:
                 state0 = choice(s_oi)
                 game.reset(state0)
-            state_ls, action_ls, reward_ls = self.episode_generator(q_dict, state0, off_policy=True)
+            state_ls, action_ls, reward_ls = self.episode_generator(q_dict, state0=state0, off_policy=True)
             g = 0
             w = 1
             for s, a, r in zip(reversed(state_ls), reversed(action_ls), reversed(reward_ls)):
@@ -224,7 +260,7 @@ class MC(Agent):
                 if s in q_dict:
                     if a in q_dict[s]:  # if next state not encountered before, no need for updating
                         q_dict[s][a] = convex_comb(q_dict[s][a], g, w / c_fun[s][a])
-                    best_action = choice(self.greedy_action(q_dict[s], find_one=False))
+                    best_action = choice(self.greedy_selection(q_dict[s], find_one=False))
                     if best_action != a:
                         break
                 w *= 1 / self.prob_b[s][a]
@@ -257,17 +293,22 @@ if __name__ == '__main__':
     # q_df.to_csv(data_dir + '/qq3_-1.csv')
     """test2 - JacksCarRental"""
     game2 = JacksCarRental()
-    agent2 = MC(game2)
-    n_episodes = 5 * 10 ** 5
-    q1 = agent2.on_policy_mc_exploring_start(n_episodes=n_episodes, epi_length=100)
-    v1 = {state: max(act_dict.values()) for state, act_dict in q1.items()}
-    policy1 = {state: max(act_dict, key=act_dict.get) for state, act_dict in q1.items()}
-    v_np = np.zeros((21, 21))
-    policy_np = np.zeros((21, 21))
-    for i in range(21):
-        for j in range(21):
-            v_np[i, j] = v1[(i, j)]
-            policy_np[i, j] = policy1[(i, j)]
+    agent2 = MC(game2, epsilon=0)
+    # n_episodes = 5 * 10 ** 5
+    # q1 = agent2.on_policy_mc_exploring_start(n_episodes=n_episodes, epi_length=100)
+    # v1 = {state: max(act_dict.values()) for state, act_dict in q1.items()}
+    # policy1 = {state: max(act_dict, key=act_dict.get) for state, act_dict in q1.items()}
+    # v_np = np.zeros((21, 21))
+    # policy_np = np.zeros((21, 21))
+    # for i in range(21):
+    #     for j in range(21):
+    #         v_np[i, j] = v1[(i, j)]
+    #         policy_np[i, j] = policy1[(i, j)]
+    # with open(data_dir + '/jacks_v.pkl', 'wb') as f:
+    #     pickle.dump(v1, f)
+    with open(data_dir + '/jacks_v.pkl', 'rb') as f:
+        v1 = pickle.load(f)
+    s_ls, a_ls, r_ls = agent2.episode_generator(v1, value_type='v', length=100)
     #
     # print('haha')
     #
