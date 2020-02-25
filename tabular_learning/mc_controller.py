@@ -7,6 +7,7 @@ from game.blackjack import BlackJack
 from game.gambler import Gambler
 from game.jacks_car_rental import JacksCarRental
 import pandas as pd
+import numpy as np
 import os
 
 
@@ -83,7 +84,7 @@ class MC(Agent):
                     self.prob_b[state][action] = self.epsilon / len(game.available_actions(state))
         return action_chosen
 
-    def episode_generator(self, q_dict, state0=None, policy=None, off_policy=False):
+    def episode_generator(self, q_dict, state0=None, policy=None, off_policy=False, length=None):
         """
         :param q_dict: an action value function (dict of dict)
         :param state0: the state used to generate the episode
@@ -97,7 +98,12 @@ class MC(Agent):
         action_ls = []
         reward_ls = []
         is_terminal = False
+        i = 0
         while not is_terminal:
+            if length is not None:
+                i += 1
+                if i == length:
+                    break
             state_ls.append(state)
             action = policy[state] if policy else self.choose_action(state, q_dict, off_policy)
             action_ls.append(action)
@@ -105,7 +111,7 @@ class MC(Agent):
             reward_ls.append(reward)
         return state_ls, action_ls, reward_ls
 
-    def on_policy_mc_exploring_start(self, n_episodes=5*10**5, policy0=None, q0=None):
+    def on_policy_mc_exploring_start(self, n_episodes=5*10**5, policy0=None, q0=None, epi_length=None):
         """
         :param n_episodes: the number of episodes (int)
         :param policy0: the policy used in the first episode (None or dict)
@@ -137,7 +143,7 @@ class MC(Agent):
             state_ls, action_ls, reward_ls = [state0], [action0], [reward0]
             if not is_terminal:
                 policy = None if episode else policy0
-                state_ls_2, action_ls_2, reward_ls_2 = self.episode_generator(q_dict, state1, policy)
+                state_ls_2, action_ls_2, reward_ls_2 = self.episode_generator(q_dict, state1, policy, length=epi_length)
                 state_ls.extend(state_ls_2)
                 action_ls.extend(action_ls_2)
                 reward_ls.extend(reward_ls_2)
@@ -252,6 +258,16 @@ if __name__ == '__main__':
     """test2 - JacksCarRental"""
     game2 = JacksCarRental()
     agent2 = MC(game2)
+    n_episodes = 5 * 10 ** 5
+    q1 = agent2.on_policy_mc_exploring_start(n_episodes=n_episodes, epi_length=100)
+    v1 = {state: max(act_dict.values()) for state, act_dict in q1.items()}
+    policy1 = {state: max(act_dict, key=act_dict.get) for state, act_dict in q1.items()}
+    v_np = np.zeros((21, 21))
+    policy_np = np.zeros((21, 21))
+    for i in range(21):
+        for j in range(21):
+            v_np[i, j] = v1[(i, j)]
+            policy_np[i, j] = policy1[(i, j)]
     #
     # print('haha')
     #

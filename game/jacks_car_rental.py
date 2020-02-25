@@ -33,19 +33,21 @@ class JacksCarRental(Game):
 
     def one_move(self, action):
 
-        self._state = (self._state[0] - action, self._state[0] + action)
+        self._state = (self._state[0] - action, self._state[1] + action)
+        if self.state[0] < 0 or self.state[1] < 0:
+            print('haha')
         reward = - abs(action) * self.move_cost
 
-        cars_rented_loc1 = np.random.poisson(self.lambda_rent_loc1, 1)[0]
+        cars_rented_loc1 = np.random.poisson(self.lambda_rent_loc1)
         cars_rented_loc1 = min(cars_rented_loc1, self._state[0])
-        cars_rented_loc2 = np.random.poisson(self.lambda_rent_loc2, 1)[0]
+        cars_rented_loc2 = np.random.poisson(self.lambda_rent_loc2)
         cars_rented_loc2 = min(cars_rented_loc2, self._state[1])
         self._state = (self._state[0] - cars_rented_loc1, self._state[1] - cars_rented_loc2)
         reward += (cars_rented_loc1 + cars_rented_loc2) * self.rent_price
 
-        cars_returned_loc1 = np.random.poisson(self.lambda_return_loc1, 1)[0]
+        cars_returned_loc1 = np.random.poisson(self.lambda_return_loc1)
         cars_left_loc1 = self._state[0] + cars_returned_loc1
-        cars_returned_loc2 = np.random.poisson(self.lambda_return_loc2, 1)[0]
+        cars_returned_loc2 = np.random.poisson(self.lambda_return_loc2)
         cars_left_loc2 = self._state[1] + cars_returned_loc2
         self._state = (min(self.parking_cap, cars_left_loc1), min(self.parking_cap, cars_left_loc2))
 
@@ -66,16 +68,16 @@ class JacksCarRental(Game):
 if __name__ == '__main__':
     jackCarRental = JacksCarRental()
     state = jackCarRental.state
-    # state_ls = []
-    # action_ls = []
-    # reward_ls = []
-    # for _ in range(10000):
-    #     state_ls.append(state)
-    #     action = random.choice(jackCarRental.available_actions(state))
-    #     action_ls.append(action)
-    #     state, reward, is_terminal = jackCarRental.one_move(action)
-    #     reward_ls.append(reward)
-    #     if state == (0, 0):
-    #         print('haha', _)
+    state_ls = []
+    action_ls = []
+    reward_ls = []
+    for _ in range(10000):
+        state_ls.append(state)
+        action = random.choice(jackCarRental.available_actions(state))
+        action_ls.append(action)
+        state, reward, is_terminal = jackCarRental.one_move(action)
+        reward_ls.append(reward)
+        if state == (0, 0):
+            print('haha', _)
     state_space = jackCarRental.state_space
     state = jackCarRental.reset((1, 1))
