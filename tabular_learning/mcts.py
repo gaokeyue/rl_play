@@ -1,6 +1,7 @@
 import time
 import math
 import random
+from tqdm import tqdm
 from copy import deepcopy
 
 from game.blackjack import BlackJack
@@ -87,7 +88,7 @@ class MCTS:
             while time.time() < time_limit:
                 self.execute_round()
         else:
-            for i in range(self.searchLimit):
+            for _ in tqdm(range(self.searchLimit)):
                 self.execute_round()
 
         best_child = self.get_best_child(self.root, 0)
@@ -153,6 +154,6 @@ if __name__ == '__main__':
     game.reset(state_of_interest)
     print(game.state)
     init_state = StateInterface(game)
-    mc_tree = MCTS(iteration_limit=1000000)
+    mc_tree = MCTS(iteration_limit=10**6)
     best_action = mc_tree.search(initial_state=init_state)
     print(best_action)
