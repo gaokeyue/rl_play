@@ -3,7 +3,7 @@ import math
 import random
 from copy import deepcopy
 
-from game.true_blackjack import BlackJack
+from game.blackjack import BlackJack
 
 
 def random_policy(state):
