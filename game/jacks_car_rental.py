@@ -38,13 +38,8 @@ class JacksCarRental(Game):
 
         reward = - action * self.move_cost
 
-        cars_rented_loc1 = self._state[0] + 1
-        while cars_rented_loc1 > self._state[0]:
-            cars_rented_loc1 = max(0, np.random.poisson(self.lambda_rent_loc1, 1)[0])
-
-        cars_rented_loc2 = self._state[1] + 1
-        while cars_rented_loc2 > self._state[1]:
-            cars_rented_loc2 = max(0, np.random.poisson(self.lambda_rent_loc2, 1)[0])
+        cars_rented_loc1 = max(0, np.random.poisson(self.lambda_rent_loc1, 1)[0])
+        cars_rented_loc2 = max(0, np.random.poisson(self.lambda_rent_loc2, 1)[0])
 
         self._state[0] -= cars_rented_loc1
         self._state[1] -= cars_rented_loc2
