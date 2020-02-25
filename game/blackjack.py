@@ -26,12 +26,32 @@ class BlackJack(Game):
         if len(states) > 0:
             shown_card, hands_sum, usable_ace = random.choice(states)
         else:
-            shown_card = random.choice(self.cards)
+            # shown_card = random.choice(self.cards)
+            shown_card = 'K'
             hands_sum = random.randint(12, 21)
-            usable_ace = random.choice([True, False])
+            # usable_ace = random.choice([True, False])
+            usable_ace = False
         state = shown_card, hands_sum, usable_ace
         self._state = state
         return state
+
+    def hit(self, hands_sum, hit_card, usable_ace):
+        hands_sum = hands_sum + self.cards_count[hit_card]
+        if (hit_card != 'A') and not usable_ace:
+            pass
+        elif usable_ace and (hit_card == 'A'):
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = True
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = False
+        else:
+            usable_ace = True
+            if hands_sum > 21:
+                hands_sum = hands_sum - 10
+                usable_ace = False
+        return hands_sum, usable_ace
 
     def dealer(self, seed=None):
         random.seed = seed
@@ -45,15 +65,9 @@ class BlackJack(Game):
             count = 12
         while count < 17:
             hit_card = random.choice(self.cards)
-            count += self.cards_count[hit_card]
+            count, usable_ace = self.hit(count, hit_card, usable_ace)
             if count > 21:
-                if not usable_ace:
-                    return 0
-                else:
-                    usable_ace = False
-                    count = count - 10
-            if hit_card is 'A':
-                usable_ace = True
+                return 0
         return count
 
     def one_move(self, action):
@@ -62,27 +76,13 @@ class BlackJack(Game):
             new_card = random.choice(self.cards)
             # print(new_card)
             shown_card, hands_sum, usable_ace = self._state
-            hands_sum += self.cards_count[new_card]
+            hands_sum, usable_ace = self.hit(hands_sum, new_card, usable_ace)
             new_state = (shown_card, hands_sum, usable_ace)
-            self._state = new_state
+            # self._state = new_state
             if hands_sum > 21:
-                if (not usable_ace) & (new_card is not 'A'):
-                    reward = -1
-                    is_terminal = True
-                    new_state = (shown_card, "busted", usable_ace)
-                else:
-                    if hands_sum == 32:
-                        reward = -1
-                        is_terminal = True
-                        new_state = (shown_card, "busted", usable_ace)
-                    else:
-                        hands_sum -= 10
-                        if (new_card is 'A') & usable_ace:
-                            usable_ace = True
-                        else:
-                            usable_ace = False
-                        new_state = (shown_card, hands_sum, usable_ace)
-                        reward = 0
+                reward = -1
+                is_terminal = True
+                new_state = (shown_card, "busted", usable_ace)
             else:
                 reward = 0
         else:
@@ -95,9 +95,14 @@ class BlackJack(Game):
             else:
                 reward = 1
             new_state = (self._state[0], 'stand', self._state[2])
+        self._state = new_state
         return new_state, reward, is_terminal
 
     def available_actions(self, state=None):
+        if state is None:
+            state = self.state
+        if state[1] == 'stand' or state[1] == 'busted':
+            return []
         return self._actions
 
     def q_initializer(self):
