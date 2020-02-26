@@ -7,45 +7,10 @@ from copy import deepcopy
 from game.blackjack import BlackJack
 
 
-def random_policy(state):
-    while not state.is_terminal:
-        try:
-            action = random.choice(state.get_possible_actions())
-        except IndexError:
-            raise Exception("Non-terminal state has no possible actions: " + str(state))
-        state = state.take_action(action)
-    return state.get_reward()
-
-
-class StateInterface:
-    def __init__(self, env):
-        self.env = env
-        self.state = env.state
-        self.reward = 1
-        self.is_terminal = False
-
-    def get_possible_actions(self, state=None):
-        return self.env.available_actions(state)
-
-    def take_action(self, action):
-        env = deepcopy(self.env)
-        self.state, self.reward, self.is_terminal = env.one_move(action)
-        return deepcopy(self)
-
-    def get_reward(self):
-        return self.reward
-
-    def get_terminal(self):
-        return self.is_terminal
-
-    def __repr__(self):
-        return f"{self.state}, {self.reward}, {self.is_terminal}"
-
-
 class TreeNode:
-    def __init__(self, state, parent):
+    def __init__(self, state, is_terminal, parent):
         self.state = state
-        self.isTerminal = state.is_terminal
+        self.isTerminal = is_terminal
         self.isFullyExpanded = self.isTerminal
         self.parent = parent
         self.numVisits = 0
@@ -57,8 +22,8 @@ class TreeNode:
 
 
 class MCTS:
-    def __init__(self, time_limit=None, iteration_limit=None, exploration_constant=1 / math.sqrt(2),
-                 rollout_policy=random_policy):
+    def __init__(self, environment, time_limit=None, iteration_limit=None, exploration_constant=1 / math.sqrt(2)):
+        self.env = environment
         if time_limit is not None:
             if iteration_limit is not None:
                 raise ValueError("Cannot have both a time limit and an iteration limit")
@@ -74,14 +39,14 @@ class MCTS:
             self.searchLimit = iteration_limit
             self.limitType = 'iterations'
         self.explorationConstant = exploration_constant
-        self.rollout = rollout_policy
+        self.rollout = self.random_policy
         self.root = None
 
     def __repr__(self):
         return f"Tree(root={self.root})"
 
     def search(self, initial_state):
-        self.root = TreeNode(initial_state, None)
+        self.root = TreeNode(initial_state, is_terminal=False, parent=None)
 
         if self.limitType == 'time':
             time_limit = time.time() + self.timeLimit / 1000
@@ -96,7 +61,7 @@ class MCTS:
 
     def execute_round(self):
         node = self.select_node(self.root)
-        reward = self.rollout(node.state)
+        reward = self.rollout(node)
         self.backpropogate(node, reward)
 
     def select_node(self, node):
@@ -107,12 +72,13 @@ class MCTS:
                 return self.expand(node)
         return node
 
-    @staticmethod
-    def expand(node):
-        actions = node.state.get_possible_actions()
+    def expand(self, node):
+        actions = self.env.available_actions(node.state)
         for action in actions:
             if action not in node.children:
-                new_node = TreeNode(node.state.take_action(action), node)
+                env = deepcopy(self.env)
+                new_state, _, is_terminal = env.one_move(action)
+                new_node = TreeNode(new_state, is_terminal, node)
                 node.children[action] = new_node
                 if len(actions) == len(node.children):
                     node.isFullyExpanded = True
@@ -147,13 +113,23 @@ class MCTS:
             if node is best_child:
                 return action
 
+    def random_policy(self, node):
+        reward = 0
+        while not node.isTerminal:
+            try:
+                action = random.choice(self.env.available_actions(node.state))
+            except IndexError:
+                raise Exception("Non-terminal state has no possible actions: " + str(node.state))
+            env = deepcopy(self.env)
+            node.state, reward, node.isTerminal = env.one_move(action)
+        return reward
+
 
 if __name__ == '__main__':
     game = BlackJack()
     state_of_interest = ('4', 12, False)
-    game.reset(state_of_interest)
+    init_state = game.reset(state_of_interest)
     print(game.state)
-    init_state = StateInterface(game)
-    mc_tree = MCTS(iteration_limit=10**6)
+    mc_tree = MCTS(game, iteration_limit=10**6)
     best_action = mc_tree.search(initial_state=init_state)
     print(best_action)
