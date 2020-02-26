@@ -130,13 +130,15 @@ class QLearner(Agent):
             is_terminal = False
             while not is_terminal:
                 after_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
-                if is_terminal:
-                    q[after_state] += self.alpha * (reward - q[after_state])
-                    break
+                # if is_terminal:
+                #     q[after_state] += self.alpha * (reward - q[after_state])
+                #     break
                 next_after_state = self.best_after_state(q, after_state)
                 target = q[next_after_state[0]]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = after_state
+            print(state, q[after_state],is_terminal)
+
         return q
 
     def afterstate_sarsa(self, episodes=50*10**5):
@@ -151,14 +153,16 @@ class QLearner(Agent):
                 target = q[next_after_state[0]]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = after_state
+            print(state, q[after_state],is_terminal)
         return q
 
 
 if __name__ == '__main__':
     from game.gambler import Gambler
     from game.blackjack import BlackJack
+    from game.jacks_car_rental import JacksCarRental
     import pandas as pd
-    test_q = QLearner(BlackJack())
+    test_q = QLearner(JacksCarRental())
     q1 = test_q.afterstate_q(5 * 10 ** 4)
     # df = pd.DataFrame(q1).T
     # a = np.array(df)
