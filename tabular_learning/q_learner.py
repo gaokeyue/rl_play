@@ -2,9 +2,6 @@ from tabular_learning import Agent
 import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
-import utils
-import seaborn as sns
-
 
 
 class QLearner(Agent):
@@ -127,7 +124,7 @@ class QLearner(Agent):
 
             return after_state, next_state, reward, is_terminal
 
-    def best_after_state(self, q, state, thresh=0):
+    def best_after_state(self, q, state):
         game = self.game
         afterstate_lst = [game.half_move(action, state) for action in game.available_actions(state)]
         candidate_q = {afterstate : q[afterstate] for afterstate in afterstate_lst}
@@ -161,7 +158,7 @@ class QLearner(Agent):
                 state = next_state
         return q
 
-    def afterstate_q_car(self, episodes=5*10**6, length = 10):
+    def afterstate_q_car(self, episodes=5*10**6, length = 14):
         # for car_rent-like cases
         game = self.game
         q = self.afterstates_q_init()
@@ -192,7 +189,7 @@ class QLearner(Agent):
                 state = next_state
         return q
 
-    def afterstate_sarsa_car(self, episodes=50*10**5, length =80):
+    def afterstate_sarsa_car(self, episodes=50*10**5, length =14):
         game = self.game
         q = self.afterstates_q_init()
         for i in tqdm(range(episodes)):
@@ -206,31 +203,10 @@ class QLearner(Agent):
         return q
 
 if __name__ == '__main__':
-    from game.gambler import Gambler
-    from game.blackjack import BlackJack
     from game.jacks_car_rental import JacksCarRental
-    import pandas as pd
     test_q = QLearner(JacksCarRental())
     q1 = test_q.afterstate_q_car(5 * 10 ** 4)
     value = np.zeros((21,21))
-    df = pd.DataFrame(index = range(21), columns= range(21))
     for key, v in q1.items():
-        df[key[0]][key[1]] = v
         value[key[0]][key[1]] = v
 
-    # df = pd.DataFrame(q1).T
-    # df.sort_index(axis=1, inplace=True)
-
-    fig = sns.heatmap(np.flipud(value), cmap="YlGnBu")
-    fig.set_ylabel('# cars at first location', fontsize=30)
-    fig.set_yticks(list(reversed(range(20 + 1))))
-    fig.set_xlabel('# cars at second location', fontsize=30)
-    fig.set_title('optimal value', fontsize=30)
-    # a = np.array(df)
-    # a = a.reshape((-1,1))
-    # df = pd.DataFrame(a)
-    # df.dropna(inplace=True)
-    # df.to_csv('expsarsa_crude.csv')
-
-    # print(df.head())
-    # df.to_csv('../qleaning.csv')
