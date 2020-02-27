@@ -151,6 +151,7 @@ class MC(Agent):
         :param n_episodes: the number of episodes (int)
         :param policy0: a policy used in the first episode (None or dict)
         :param q0: an initial state-action value function (None or dict of dict)
+        :param epi_length: the length of an episode if a MDP problem is a continuing type (int), else (None)
         :return: a state-action value function (dict of dict)
         """
         self.epsilon = 0
@@ -266,6 +267,56 @@ class MC(Agent):
                 w *= 1 / self.prob_b[s][a]
         return q_dict
 
+    def on_policy_mc_exploring_start_after_state(self, n_episodes=5*10**5, policy0=None, epi_length=None):
+        """
+        :param n_episodes: the number of episodes (int)
+        :param policy0: a policy used in the first episode (None or dict)
+        :param epi_length: the length of an episode if a MDP problem is a continuing type (int), else (None)
+        :return: a state value function (dict)
+        """
+        self.epsilon = 0
+        game = self.game
+        v_dict = self.v_initializer(use_averager=True, default_value=0)
+        for episode in tqdm(range(n_episodes)):
+            state0 = game.reset()
+            action0 = choice(game.available_actions(state0))
+            state1, reward0, is_terminal = game.one_move(action0)
+            state_ls, action_ls, reward_ls = [state0], [action0], [reward0]
+            if not is_terminal:
+                policy = None if episode else policy0
+                state_ls_2, action_ls_2, reward_ls_2 = self.episode_generator(v_dict, value_type='v', state0=state1,
+                                                                              policy=policy, length=epi_length)
+                state_ls.extend(state_ls_2)
+                action_ls.extend(action_ls_2)
+                reward_ls.extend(reward_ls_2)
+            g = 0
+            for s, a, r in zip(reversed(state_ls), reversed(action_ls), reversed(reward_ls)):
+                g = game.gamma * g + r
+                after_s = game.half_move(a, s)
+                v_dict[after_s].add_new(g)  # using every-visit
+        v_dict = {state: v.average for state, v in v_dict.items()}
+        return v_dict
+
+    def on_policy_mc_epsilon_soft_after_state(self, n_episodes=5*10**5, epi_length=None):
+        """
+        :param n_episodes: the number of episodes (int)
+        :param epi_length: the length of an episode if a MDP problem is a continuing type (int), else (None)
+        :return: a state value function (dict)
+        """
+        game = self.game
+        v_dict = self.v_initializer(use_averager=True, default_value=0)
+        for _ in tqdm(range(n_episodes)):
+            state0 = game.reset()
+            state_ls, action_ls, reward_ls = self.episode_generator(v_dict, value_type='v', state0=state0,
+                                                                    length=epi_length)
+            g = 0
+            for s, a, r in zip(reversed(state_ls), reversed(action_ls), reversed(reward_ls)):
+                g = game.gamma * g + r
+                after_s = game.half_move(a, s)
+                v_dict[after_s].add_new(g)  # using every-visit
+        v_dict = {state: v.average for state, v in v_dict.items()}
+        return v_dict
+
 
 if __name__ == '__main__':
 
@@ -292,8 +343,8 @@ if __name__ == '__main__':
     # q_df.sort_index(level=0, inplace=True)
     # q_df.to_csv(data_dir + '/qq3_-1.csv')
     """test2 - JacksCarRental"""
-    game2 = JacksCarRental()
-    agent2 = MC(game2, epsilon=0)
+    # game2 = JacksCarRental()
+    # agent2 = MC(game2, epsilon=0)
     # n_episodes = 5 * 10 ** 5
     # q1 = agent2.on_policy_mc_exploring_start(n_episodes=n_episodes, epi_length=100)
     # v1 = {state: max(act_dict.values()) for state, act_dict in q1.items()}
@@ -306,9 +357,27 @@ if __name__ == '__main__':
     #         policy_np[i, j] = policy1[(i, j)]
     # with open(data_dir + '/jacks_v.pkl', 'wb') as f:
     #     pickle.dump(v1, f)
-    with open(data_dir + '/jacks_v.pkl', 'rb') as f:
-        v1 = pickle.load(f)
-    s_ls, a_ls, r_ls = agent2.episode_generator(v1, value_type='v', length=100)
+    """test2.1 - JacksCarRental after_state"""
+    game3 = JacksCarRental()
+    agent3 = MC(game3)
+    n_episodes = 5 * 10 ** 5
+    # v1 = agent3.on_policy_mc_exploring_start_after_state(n_episodes=n_episodes, epi_length=100)
+    v1 = agent3.on_policy_mc_epsilon_soft_after_state(n_episodes=n_episodes, epi_length=100)
+    # with open(data_dir + '/jacks_v_eg.pkl', 'rb') as f:
+    # with open(data_dir + '/jacks_v_es.pkl', 'rb') as f:
+    #     v1 = pickle.load(f)
+    v1_np = np.zeros((21, 21))
+    policy_np = np.zeros((21, 21))
+    for i in range(21):
+        for j in range(21):
+            v1_np[i, j] = v1[(i, j)]
+    for i in range(21):
+        for j in range(21):
+            after_states = tuple(game3.half_move(action, (i, j)) for action in game3.available_actions((i, j)))
+            v_dict_selected = {after_state: v1[after_state] for after_state in after_states}
+            after_state = choice(agent3.greedy_selection(v_dict_selected, find_one=False))
+            action_chosen = game3.half_move_reverse(after_state, (i, j))
+            policy_np[i, j] = action_chosen
     #
     # print('haha')
     #
