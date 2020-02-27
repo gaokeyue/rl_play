@@ -3,6 +3,8 @@ import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
 import utils
+import seaborn as sns
+
 
 
 class QLearner(Agent):
@@ -32,10 +34,35 @@ class QLearner(Agent):
             while not is_terminal:
                 action = self.epsilon_greedy(state, q)
                 next_state, reward, is_terminal = game.one_move(action)
+                if is_terminal:
+                    q[state][action] += self.alpha * (reward - q[state][action])
+                    break
                 q_next = max(q[next_state].values())
                 q[state][action] += self.alpha * (reward + game.gamma * q_next - q[state][action])
                 state = next_state
         return q
+
+
+    def q_car(self, episodes=5 * 10 ** 5, q0=None, soi=None, days = 30):
+        # for jack_car_rent
+        game = self.game
+        q = game.q_initializer() if q0 is None else q0
+        for _ in tqdm(range(episodes)):
+            if soi is None:
+                state = game.reset()
+            else:
+                state = game.reset(np.random.choice(soi))
+            is_terminal = False
+            while not is_terminal:
+                for _ in range(days):
+                    action = self.epsilon_greedy(state, q)
+                    next_state, reward, is_terminal = game.one_move(action)
+                    q_next = max(q[next_state].values())
+                    q[state][action] += self.alpha * (reward + game.gamma * q_next - q[state][action])
+                    state = next_state
+                is_terminal = True
+        return q
+
 
     def sarsa(self, episodes=50 * 10 ** 5, q0=None, soi=None):
         game = self.game
@@ -86,40 +113,35 @@ class QLearner(Agent):
         return q
 
 
-
     def afterstate_epi_greedy(self, q, state):
         game = self.game
         if np.random.random() < self.epsilon:
             chosen_action = np.random.choice(game.available_actions(state))
-            after_state, reward, is_terminal = game.one_move(chosen_action)
-            return after_state, reward, is_terminal
+            after_state = game.half_move(chosen_action, state)
+            next_state, reward, is_terminal = game.one_move(chosen_action)
+            return after_state, next_state, reward, is_terminal
         else:
-            after_state, reward, is_terminal = self.best_after_state(q, state)
-            return after_state, reward, is_terminal
+            after_state = self.best_after_state(q, state)
+            chosen_action = game.half_move_reverse(after_state, state)
+            next_state, reward, is_terminal = game.one_move(chosen_action)
+
+            return after_state, next_state, reward, is_terminal
 
     def best_after_state(self, q, state, thresh=0):
         game = self.game
-        best_after_state = []
-        best_after_state_value = -1
-        for action in game.available_actions(state):
-            game._state = state
-            after_state, reward, is_terminal = game.one_move(action)
-            after_state_lst = (after_state, reward, is_terminal)
-            flag = utils.compare(q[after_state], best_after_state_value, thresh)
-            if flag == 1:
-                best_after_state_value = q[after_state]
-                best_after_state = [after_state_lst]
-            elif flag == 0:
-                best_after_state.append(after_state_lst)
-        num = np.random.choice(range(len(best_after_state)))
-        return best_after_state[num]
+        afterstate_lst = [game.half_move(action, state) for action in game.available_actions(state)]
+        candidate_q = {afterstate : q[afterstate] for afterstate in afterstate_lst}
+        max_q = max(candidate_q.values())
+        candidate_afterstate = [key for key, value in candidate_q.items() if value==max_q]
+        num = np.random.choice(range(len(candidate_afterstate)))
+        return candidate_afterstate[num]
 
     def afterstates_q_init(self):
         game = self.game
         if game.state_space is None:
             return defaultdict(int)
         else:
-            q = {k:1 for k in game.state_space}
+            q = {k:0 for k in game.state_space}
             return q
 
     def afterstate_q(self, episodes=5*10**6):
@@ -129,33 +151,59 @@ class QLearner(Agent):
             state = game.reset()
             is_terminal = False
             while not is_terminal:
-                after_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
-                # if is_terminal:
-                #     q[after_state] += self.alpha * (reward - q[after_state])
-                #     break
-                next_after_state = self.best_after_state(q, after_state)
-                target = q[next_after_state[0]]
+                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
+                if is_terminal:
+                    q[after_state] += self.alpha * (reward - q[after_state])
+                    break
+                next_after_state = self.best_after_state(q, next_state)
+                target = q[next_after_state]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
-                state = after_state
-            print(state, q[after_state],is_terminal)
+                state = next_state
+        return q
 
+    def afterstate_q_car(self, episodes=5*10**6, length = 10):
+        # for car_rent-like cases
+        game = self.game
+        q = self.afterstates_q_init()
+        for _ in tqdm(range(episodes)):
+            state = game.reset()
+            for i in range(length):
+                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
+                next_after_state = self.best_after_state(q, after_state)
+                target = q[next_after_state]
+                q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
+                state = next_state
         return q
 
     def afterstate_sarsa(self, episodes=50*10**5):
         game = self.game
         q = self.afterstates_q_init()
-        for _ in tqdm(range(episodes)):
+        for i in tqdm(range(episodes)):
             state = game.reset()
             is_terminal = False
             while not is_terminal:
-                after_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
-                next_after_state, _, _ = self.afterstate_epi_greedy(q, after_state)
-                target = q[next_after_state[0]]
+                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
+                if is_terminal:
+                    q[after_state] += self.alpha * (reward - q[after_state])
+                    break
+                next_after_state, _, _, _ = self.afterstate_epi_greedy(q, next_state)
+                target = q[next_after_state]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
-                state = after_state
-            print(state, q[after_state],is_terminal)
+                state = next_state
         return q
 
+    def afterstate_sarsa_car(self, episodes=50*10**5, length =80):
+        game = self.game
+        q = self.afterstates_q_init()
+        for i in tqdm(range(episodes)):
+            state = game.reset()
+            for j in range(length):
+                after_state, next_state, reward, _ = self.afterstate_epi_greedy(q, state)
+                next_after_state, _, _, _ = self.afterstate_epi_greedy(q, next_state)
+                target = q[next_after_state]
+                q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
+                state = next_state
+        return q
 
 if __name__ == '__main__':
     from game.gambler import Gambler
@@ -163,8 +211,21 @@ if __name__ == '__main__':
     from game.jacks_car_rental import JacksCarRental
     import pandas as pd
     test_q = QLearner(JacksCarRental())
-    q1 = test_q.afterstate_q(5 * 10 ** 4)
+    q1 = test_q.afterstate_q_car(5 * 10 ** 4)
+    value = np.zeros((21,21))
+    df = pd.DataFrame(index = range(21), columns= range(21))
+    for key, v in q1.items():
+        df[key[0]][key[1]] = v
+        value[key[0]][key[1]] = v
+
     # df = pd.DataFrame(q1).T
+    # df.sort_index(axis=1, inplace=True)
+
+    fig = sns.heatmap(np.flipud(value), cmap="YlGnBu")
+    fig.set_ylabel('# cars at first location', fontsize=30)
+    fig.set_yticks(list(reversed(range(20 + 1))))
+    fig.set_xlabel('# cars at second location', fontsize=30)
+    fig.set_title('optimal value', fontsize=30)
     # a = np.array(df)
     # a = a.reshape((-1,1))
     # df = pd.DataFrame(a)
