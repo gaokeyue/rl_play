@@ -59,7 +59,7 @@ class JacksCarRental(Game):
     def half_move_reverse(self, after_state, state=None):
         if state is None:
             state = self._state
-        action = after_state[0] - state[0]
+        action = - after_state[0] + state[0]
         return action
 
     def available_actions(self, state=None):
