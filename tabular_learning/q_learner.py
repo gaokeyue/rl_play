@@ -2,12 +2,13 @@ from tabular_learning import Agent
 import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
+import seaborn as sns
 
 
 class QLearner(Agent):
     """q_learning, sarsa, expected sarsa"""
 
-    def __init__(self, game, alpha=10 ** -2, epsilon=0.1, n_trials=5 * 10 ** 4):
+    def __init__(self, game, alpha=10 ** -4, epsilon=0.1, n_trials=5 * 10 ** 4):
         super().__init__(game)
         self.alpha = alpha
         self.epsilon = epsilon
@@ -40,7 +41,7 @@ class QLearner(Agent):
         return q
 
 
-    def q_car(self, episodes=5 * 10 ** 5, q0=None, soi=None, days = 30):
+    def q_car(self, episodes=5 * 10 ** 5, q0=None, soi=None, length = 30):
         # for jack_car_rent
         game = self.game
         q = game.q_initializer() if q0 is None else q0
@@ -51,7 +52,7 @@ class QLearner(Agent):
                 state = game.reset(np.random.choice(soi))
             is_terminal = False
             while not is_terminal:
-                for _ in range(days):
+                for _ in range(length):
                     action = self.epsilon_greedy(state, q)
                     next_state, reward, is_terminal = game.one_move(action)
                     q_next = max(q[next_state].values())
@@ -115,14 +116,11 @@ class QLearner(Agent):
         if np.random.random() < self.epsilon:
             chosen_action = np.random.choice(game.available_actions(state))
             after_state = game.half_move(chosen_action, state)
-            next_state, reward, is_terminal = game.one_move(chosen_action)
-            return after_state, next_state, reward, is_terminal
+            return after_state, chosen_action
         else:
             after_state = self.best_after_state(q, state)
             chosen_action = game.half_move_reverse(after_state, state)
-            next_state, reward, is_terminal = game.one_move(chosen_action)
-
-            return after_state, next_state, reward, is_terminal
+            return after_state, chosen_action
 
     def best_after_state(self, q, state):
         game = self.game
@@ -148,26 +146,29 @@ class QLearner(Agent):
             state = game.reset()
             is_terminal = False
             while not is_terminal:
-                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
+                after_state, chosen_action = self.afterstate_epi_greedy(q, state)
+                next_state, reward, is_terminal = game.one_move(chosen_action)
                 if is_terminal:
                     q[after_state] += self.alpha * (reward - q[after_state])
                     break
-                next_after_state = self.best_after_state(q, next_state)
-                target = q[next_after_state]
+                afterstate_lst = [game.half_move(action, next_state) for action in game.available_actions(next_state)]
+                candidate_q = {afterstate: q[afterstate] for afterstate in afterstate_lst}
+                target = max(candidate_q.values())
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = next_state
         return q
 
     def afterstate_q_car(self, episodes=5*10**6, length = 14):
-        # for car_rent-like cases
         game = self.game
         q = self.afterstates_q_init()
         for _ in tqdm(range(episodes)):
             state = game.reset()
             for i in range(length):
-                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
-                next_after_state = self.best_after_state(q, after_state)
-                target = q[next_after_state]
+                after_state, chosen_action = self.afterstate_epi_greedy(q, state)
+                next_state, reward, is_terminal = game.one_move(chosen_action)
+                afterstate_lst = [game.half_move(action, next_state) for action in game.available_actions(next_state)]
+                candidate_q = {afterstate: q[afterstate] for afterstate in afterstate_lst}
+                target = max(candidate_q.values())
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = next_state
         return q
@@ -179,11 +180,12 @@ class QLearner(Agent):
             state = game.reset()
             is_terminal = False
             while not is_terminal:
-                after_state, next_state, reward, is_terminal = self.afterstate_epi_greedy(q, state)
+                after_state, chosen_action = self.afterstate_epi_greedy(q, state)
+                next_state, reward, is_terminal = game.one_move(chosen_action)
                 if is_terminal:
                     q[after_state] += self.alpha * (reward - q[after_state])
                     break
-                next_after_state, _, _, _ = self.afterstate_epi_greedy(q, next_state)
+                next_after_state, _ = self.afterstate_epi_greedy(q, next_state)
                 target = q[next_after_state]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = next_state
@@ -195,18 +197,44 @@ class QLearner(Agent):
         for i in tqdm(range(episodes)):
             state = game.reset()
             for j in range(length):
-                after_state, next_state, reward, _ = self.afterstate_epi_greedy(q, state)
-                next_after_state, _, _, _ = self.afterstate_epi_greedy(q, next_state)
+                after_state, chosen_action = self.afterstate_epi_greedy(q, state)
+                next_state, reward, is_terminal = game.one_move(chosen_action)
+                next_after_state, _ = self.afterstate_epi_greedy(q, next_state)
                 target = q[next_after_state]
                 q[after_state] += self.alpha * (reward + game.gamma * target - q[after_state])
                 state = next_state
         return q
 
+    def policy(self, q):
+        policy = np.zeros((21, 21))
+        for i in range(21):
+            for j in range(21):
+                state = (i, j)
+                afterstates_lst = {action: q[(i - action, j + action)] for action in self.game.available_actions(state)}
+                best_value = max(afterstates_lst.values())
+                best_action = [k for k, v in afterstates_lst.items() if v == best_value]
+                policy[i][j] = best_action[0]
+        return policy
+
 if __name__ == '__main__':
     from game.jacks_car_rental import JacksCarRental
     test_q = QLearner(JacksCarRental())
-    q1 = test_q.afterstate_q_car(5 * 10 ** 4)
-    value = np.zeros((21,21))
+    q1 = test_q.afterstate_q_car(10 * 10 ** 6, length = 100)
+    value_afq_30_100 = np.zeros((21,21))
     for key, v in q1.items():
-        value[key[0]][key[1]] = v
+        value_afq_30_100[key[0]][key[1]] = v
 
+    # policy for q learning
+    policy = np.zeros((21,21))
+    for state, action_value in q1.items():
+        v = max(q1[state].values())
+        i, j = state
+        policy[i][j] = [a for a, value in q1[state].items() if value == v][0]
+
+    # policy = test_q.policy(q1)
+
+    # fig = sns.heatmap(np.flipud(value_afs_20_100), cmap="YlGnBu")
+    # fig.set_yticks(list(reversed(range(20 + 1))))
+
+    fig2 = sns.heatmap(np.flipud(policy),cmap="YlGnBu")
+    fig2.set_yticks(list(reversed(range(20 + 1))))
